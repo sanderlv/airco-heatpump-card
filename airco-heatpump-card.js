@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.2.0";
+const CARD_VERSION = "0.3.0";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -40,6 +40,22 @@ const TEXTS = {
     compressor: "Compressor",
     total: "total",
     defrost_today: "Defrost today",
+    help: "Explanation",
+    help_colors: "Colors",
+    help_drawing: "Drawing",
+    help_heat: "The compressor runs and delivers heat.",
+    help_cool: "The compressor runs and cools the room.",
+    help_dry: "The compressor runs and removes moisture from the air.",
+    help_auto: "The unit picks heating or cooling by itself.",
+    help_fan: "Only the indoor fan runs.",
+    help_standby: "On, but the compressor is idle: the room is at its setpoint.",
+    help_defrost: "The outdoor unit melts frost off its coil. The indoor fan stops.",
+    help_streaks: "Air streaks: speed follows the indoor fan, direction follows the vanes.",
+    help_lines: "Moving dashes: refrigerant flows while the compressor runs. Thick line = gas, thin line = liquid. The flow reverses when cooling or defrosting.",
+    help_snow: "Snowflake on the outdoor unit: defrost.",
+    help_cop: "COP ≈ is an estimate, not a measurement.",
+    help_tap: "Tap the thermostat button on the indoor unit for the controls, any other part for its history.",
+    thermostat: "Thermostat",
     last: "last",
     filter: "Filter",
     filter_tap: "tap after cleaning",
@@ -78,6 +94,22 @@ const TEXTS = {
     compressor: "Compressor",
     total: "totaal",
     defrost_today: "Defrost vandaag",
+    help: "Uitleg",
+    help_colors: "Kleuren",
+    help_drawing: "Tekening",
+    help_heat: "De compressor draait en levert warmte.",
+    help_cool: "De compressor draait en koelt de kamer.",
+    help_dry: "De compressor draait en haalt vocht uit de lucht.",
+    help_auto: "De unit kiest zelf tussen verwarmen en koelen.",
+    help_fan: "Alleen de binnenventilator draait.",
+    help_standby: "Aan, maar de compressor staat stil: de kamer is op temperatuur.",
+    help_defrost: "De buitenunit ontdooit zijn wisselaar. De binnenventilator staat stil.",
+    help_streaks: "Luchtstrepen: de snelheid volgt de binnenventilator, de richting volgt de lamellen.",
+    help_lines: "Bewegende streepjes: koudemiddel stroomt zolang de compressor draait. Dikke leiding = gas, dunne = vloeistof. Bij koelen en defrost draait de stroom om.",
+    help_snow: "Sneeuwvlok op de buitenunit: defrost.",
+    help_cop: "COP ≈ is een schatting, geen meting.",
+    help_tap: "Tik op het thermostaatknopje van de binnenunit voor de bediening, op de rest voor de geschiedenis.",
+    thermostat: "Thermostaat",
     last: "laatst",
     filter: "Filter",
     filter_tap: "tik na reinigen",
@@ -162,6 +194,7 @@ const DEFAULTS = {
   animations: "auto",
   cop: true,
   timeline: true,
+  help: true,
   timeline_hours: 24,
   voltage: 230,
   coil_factor: 0.7,
@@ -292,6 +325,23 @@ const STYLE = `
   }
   .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--st, var(--ahc-off)); }
   .chip.alert { --st: var(--error-color, #ef4444); }
+  .title { flex: 1; min-width: 0; }
+  .help-btn {
+    display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
+    border-radius: 50%; color: var(--secondary-text-color); cursor: pointer; flex: none;
+  }
+  .help-btn:hover, .help-btn.open { color: var(--primary-text-color); background: var(--secondary-background-color, #2b2b2b); }
+  .help-btn svg { width: 18px; height: 18px; margin: 0; }
+  .help-btn[hidden] { display: none; }
+  .help { margin: 8px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--secondary-background-color, #2b2b2b); font-size: 0.8em; color: var(--primary-text-color); }
+  .help[hidden] { display: none; }
+  .help h4 { margin: 0 0 6px; font-size: 0.95em; font-weight: 500; color: var(--secondary-text-color); }
+  .help h4 + * { margin-top: 0; }
+  .help-colors { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; align-items: baseline; margin-bottom: 10px; }
+  .help-colors .name { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; white-space: nowrap; }
+  .help-colors .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
+  .help ul { margin: 0; padding-left: 18px; }
+  .help li { margin: 3px 0; }
   .chip[hidden] { display: none; }
 
   svg { display: block; width: 100%; height: auto; margin-top: 4px; }
@@ -312,6 +362,11 @@ const STYLE = `
   .comp-body { fill: var(--disabled-text-color, #6b7280); stroke: var(--secondary-text-color); stroke-width: 1; }
   .louver { stroke: var(--divider-color, #555); stroke-width: 2; stroke-linecap: round; }
   .clickable { cursor: pointer; }
+  .thermo-bg { fill: var(--card-background-color, #1c1c1c); stroke: var(--divider-color, #555); stroke-width: 1.2; transition: stroke 0.2s; }
+  .thermo:hover .thermo-bg { stroke: var(--primary-color, #03a9f4); }
+  .thermo-glass { fill: none; stroke: var(--primary-text-color); stroke-width: 1.1; stroke-linejoin: round; }
+  .thermo-fill { fill: var(--thermo, var(--ahc-standby)); }
+  .thermo-tick { stroke: var(--secondary-text-color); stroke-width: 1; stroke-linecap: round; }
 
   .spin { animation: ahc-spin var(--dur, 1s) linear infinite; animation-play-state: paused; }
   .spin.run { animation-play-state: running; }
@@ -564,6 +619,15 @@ class AircoHeatpumpCard extends HTMLElement {
             <text class="big" x="142" y="23" text-anchor="end" data-id="u${i}-room">–</text>
             <text class="small muted" x="142" y="35" text-anchor="end" data-id="u${i}-target"></text>
           </g>
+          <g class="clickable thermo" data-entity="u${i}.climate" transform="translate(150,0)">
+            <title>${this._t("thermostat")}</title>
+            <circle class="thermo-bg" r="11.5"/>
+            <path class="thermo-glass" d="M-2,1.4 V-5 A2,2 0 0 1 2,-5 V1.4 A3.6,3.6 0 1 1 -2,1.4 Z"/>
+            <rect class="thermo-fill" data-id="u${i}-thermo" x="-0.8" y="-3" width="1.6" height="6"/>
+            <circle class="thermo-fill" data-id="u${i}-thermo" cy="4.1" r="2.2"/>
+            <line class="thermo-tick" x1="3.6" y1="-4.5" x2="5.4" y2="-4.5"/>
+            <line class="thermo-tick" x1="3.6" y1="-2" x2="5.4" y2="-2"/>
+          </g>
           <g transform="translate(72,46)">
             <g class="air" data-id="u${i}-air">
               ${airColumn(-36, `u${i}-vane`)}${airColumn(0, `u${i}-vane`)}${airColumn(36, `u${i}-vane`)}
@@ -580,11 +644,15 @@ class AircoHeatpumpCard extends HTMLElement {
         <div class="wrap" data-id="wrap">
           <div class="header">
             <div class="title clickable" data-entity="u0.climate">${title}</div>
+            <span class="help-btn" data-help="1" data-id="help-btn" role="button" title="${this._t("help")}" ${this._config.help ? "" : "hidden"}>
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/><rect x="10.9" y="10.4" width="2.2" height="7.4" rx="1.1" fill="currentColor"/></svg>
+            </span>
             <div class="chips clickable" data-entity="u0.climate">
               <span class="chip alert" data-id="alert" hidden><span class="dot"></span><span data-id="alert-text"></span></span>
               <span class="chip" data-id="chip"><span class="dot"></span><span data-id="chip-text"></span></span>
             </div>
           </div>
+          <div class="help" data-id="help" hidden>${this._helpHtml()}</div>
           <svg viewBox="0 0 400 ${L.height}" role="img" aria-label="${title}">
             <line class="wall" x1="${L.wallX}" y1="6" x2="${L.wallX}" y2="${L.height - 6}"/>
             ${pipes}
@@ -686,6 +754,7 @@ class AircoHeatpumpCard extends HTMLElement {
     });
 
     this.shadowRoot.querySelector("ha-card").addEventListener("click", (ev) => this._onClick(ev));
+    this._helpOpen = false;
     this._built = true;
   }
 
@@ -853,6 +922,8 @@ class AircoHeatpumpCard extends HTMLElement {
 
       const airColor = { heat: "--ahc-heat", cool: "--ahc-cool", dry: "--ahc-dry", auto: "--ahc-auto" }[s.status] || "--ahc-fan";
       this._class(`u${i}-air`, "run", fanRuns && s.status !== "defrost");
+      const unitColor = ["off", "unavailable"].includes(s.status) ? "var(--ahc-off)" : `var(--ahc-${s.status})`;
+      this._var(`u${i}-thermo`, "--thermo", unitColor);
       this._var(`u${i}-air`, "--air", `var(${airColor})`);
       this._var(`u${i}-air`, "--dur", `${clamp(3.2 / (s.fan || 1), 0.8, 3.5)}s`);
 
@@ -954,10 +1025,39 @@ class AircoHeatpumpCard extends HTMLElement {
     }
   }
 
+  // ---------- help panel ----------
+
+  _helpHtml() {
+    const colors = ["heat", "cool", "dry", "auto", "fan", "standby", "defrost"]
+      .map(
+        (s) =>
+          `<span class="name"><span class="dot" style="--c:var(--ahc-${s})"></span>${this._t(s)}</span>` +
+          `<span>${this._t(`help_${s}`)}</span>`
+      )
+      .join("");
+    const drawing = ["help_streaks", "help_lines", "help_snow", "help_cop", "help_tap"]
+      .map((key) => `<li>${this._t(key)}</li>`)
+      .join("");
+    return (
+      `<h4>${this._t("help_colors")}</h4><div class="help-colors">${colors}</div>` +
+      `<h4>${this._t("help_drawing")}</h4><ul>${drawing}</ul>`
+    );
+  }
+
+  _toggleHelp() {
+    this._helpOpen = !this._helpOpen;
+    this._hide("help", !this._helpOpen);
+    this._class("help-btn", "open", this._helpOpen);
+  }
+
   // ---------- clicks ----------
 
   _onClick(ev) {
     const path = ev.composedPath();
+    if (path.some((el) => el.dataset?.help)) {
+      this._toggleHelp();
+      return;
+    }
     const filterTile = path.find((el) => el.dataset?.filter != null);
     if (filterTile) {
       this._resetFilter(Number(filterTile.dataset.filter));
@@ -1126,6 +1226,7 @@ const LABELS = {
   animations: "Animations",
   cop: "Show estimated COP",
   timeline: "Show timeline",
+  help: "Show help button (i)",
   timeline_hours: "Timeline (hours)",
   climate: "Climate entity",
   filter: "Filter helper",
@@ -1274,6 +1375,7 @@ function buildSchema(data) {
       schema: [
         { name: "cop", selector: { boolean: {} } },
         { name: "timeline", selector: { boolean: {} } },
+        { name: "help", selector: { boolean: {} } },
         { name: "timeline_hours", selector: { number: { min: 3, max: 72, mode: "box" } } },
       ],
     },

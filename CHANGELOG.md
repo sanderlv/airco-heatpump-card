@@ -7,6 +7,15 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.3.0] - 2026-11-26
+
+### Added
+
+- ⓘ button next to the title: shows an explanation of the colors and the drawing inside the card (English and Dutch).
+  Can be turned off with `help: false` or in the editor.
+- Thermostat button on the corner of every indoor unit that opens the climate controls.
+  Its thermometer shows the color of the unit's status.
+
 ## [0.2.0] - 2026-11-26
 
 ### Added

@@ -17,6 +17,8 @@ With [MHI-AC-Ctrl](https://github.com/ginkage/MHI-AC-Ctrl-ESPHome) (ESPHome) the
 - **Timeline** of the last 24 hours.
 - **Two indoor units on one outdoor unit** (multi-split).
 - **Visual editor** that shows which sensors were found automatically.
+- **Built-in explanation**: the ⓘ button opens a short explanation of the colors and the drawing inside the card.
+- **Thermostat button** on every indoor unit opens the climate controls.
 - English labels by default; Dutch (`language: nl`) is available as a translation.
 
 ## Installation
@@ -44,6 +46,8 @@ Edit a dashboard → **Add card** → search for **Airco Heat Pump Card**.
 Everything can also be set in YAML, see [Configuration](#configuration).
 
 ## Reading the card
+
+Tap the **ⓘ** button next to the title for a short version of this explanation inside the card.
 
 ### Colors
 
@@ -126,7 +130,10 @@ or when the **compressor protection** is not *Normal*.
 
 ### Tapping
 
-- **Indoor unit, title or status chip**: opens the climate dialog, so you can control the unit.
+- **Thermostat button** (the round button with a thermometer on the corner of every indoor unit): opens the
+  climate dialog, so you can control the unit. Its thermometer has the color of the unit's status.
+  Tapping the indoor unit itself, the title or the status chip does the same.
+- **ⓘ button**: shows or hides the explanation of the colors and the drawing.
 - **Any other part of the drawing, and the tiles**: opens the history of that sensor.
 - **Filter tile**: resets the filter counter after cleaning (asks for confirmation).
 
@@ -179,6 +186,7 @@ The outdoor values (compressor, defrost, power, ...) are read from the **first**
 | `coil_factor` | `0.7` | Share of the coil-to-room temperature difference that ends up in the air (COP estimate). |
 | `timeline` | `true` | Show the timeline. |
 | `timeline_hours` | `24` | Hours shown in the timeline. |
+| `help` | `true` | Show the ⓘ button with the explanation. |
 | `voltage` | `230` | Used to turn amps into watts when there is no power sensor. |
 | `entities` | | Outdoor unit sensors, see below. |
 
