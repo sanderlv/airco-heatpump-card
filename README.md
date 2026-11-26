@@ -123,10 +123,13 @@ so many long defrosts lower the efficiency.
 The bar under the tiles shows the status of the last 24 hours, in the colors above.
 The dark background means the unit was off. Hover over a block to see its times.
 
-### Alerts
+### Notices
 
-A red chip next to the status appears when the unit reports an **error code**,
-or when the **compressor protection** is not *Normal*.
+A notice appears under the title when the unit reports something:
+
+- **Amber**: a *protection control* (for example *Low pressure protection control* or *Discharge pipe temperature
+  protection control*). The unit limits itself for a while to protect the compressor. In cold weather this is usually normal.
+- **Red**: a fault: an **error code**, or a protection state like *... anomaly*, *Current cut* or *Stop by ...*.
 
 ### Tapping
 

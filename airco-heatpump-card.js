@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.3.2";
+const CARD_VERSION = "0.3.3";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -56,6 +56,7 @@ const TEXTS = {
     help_cop: "COP ≈ is an estimate, not a measurement.",
     help_tap: "Tap the thermostat button on the indoor unit for the controls, any other part for its history.",
     thermostat: "Thermostat",
+    help_notice: "Amber notice: the unit limits itself for a while to protect the compressor (protection control), usually normal in cold weather. Red notice: a fault.",
     last: "last",
     filter: "Filter",
     filter_tap: "tap after cleaning",
@@ -110,6 +111,7 @@ const TEXTS = {
     help_cop: "COP ≈ is een schatting, geen meting.",
     help_tap: "Tik op het thermostaatknopje van de binnenunit voor de bediening, op de rest voor de geschiedenis.",
     thermostat: "Thermostaat",
+    help_notice: "Oranje melding: de unit begrenst zichzelf even om de compressor te beschermen (protection control), meestal normaal bij kou. Rode melding: een storing.",
     last: "laatst",
     filter: "Filter",
     filter_tap: "tik na reinigen",
@@ -315,18 +317,24 @@ const STYLE = `
     --ahc-off: #475569;
   }
   ha-card { padding: 12px 14px 14px; overflow: hidden; }
-  .header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-  .title { font-size: 1.15em; font-weight: 500; color: var(--primary-text-color); }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+  .header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; }
+  .title-wrap { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; }
+  .title { font-size: 1.15em; font-weight: 500; color: var(--primary-text-color); min-width: 0; overflow-wrap: anywhere; }
   .chip {
     display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
     font-size: 0.85em; color: var(--primary-text-color);
     background: color-mix(in srgb, var(--st, var(--ahc-off)) 20%, transparent);
   }
+  .chip { flex: none; white-space: nowrap; }
   .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--st, var(--ahc-off)); }
-  .chip.alert { --st: var(--error-color, #ef4444); }
-  /* The title never gets narrower than its longest word; long chips move to their own line instead. */
-  .title { flex: 1; }
+  .notice {
+    display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; padding: 4px 10px; border-radius: 8px;
+    font-size: 0.8em; color: var(--primary-text-color); background: color-mix(in srgb, var(--nc) 16%, transparent);
+  }
+  .notice .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--nc); margin-top: 0.35em; flex: none; }
+  .notice.info { --nc: var(--warning-color, #f59e0b); }
+  .notice.fault { --nc: var(--error-color, #ef4444); }
+  .notice[hidden] { display: none; }
   .help-btn {
     display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
     border-radius: 50%; color: var(--secondary-text-color); cursor: pointer; flex: none;
@@ -343,7 +351,6 @@ const STYLE = `
   .help-colors .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
   .help ul { margin: 0; padding-left: 18px; }
   .help li { margin: 3px 0; }
-  .chip[hidden] { display: none; }
 
   svg { display: block; width: 100%; height: auto; margin-top: 4px; }
   svg text { fill: var(--primary-text-color); font-family: inherit; font-size: 11px; }
@@ -644,15 +651,15 @@ class AircoHeatpumpCard extends HTMLElement {
       <ha-card>
         <div class="wrap" data-id="wrap">
           <div class="header">
+            <div class="title-wrap">
             <div class="title clickable" data-entity="u0.climate">${title}</div>
             <span class="help-btn" data-help="1" data-id="help-btn" role="button" title="${this._t("help")}" ${this._config.help ? "" : "hidden"}>
               <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/><rect x="10.9" y="10.4" width="2.2" height="7.4" rx="1.1" fill="currentColor"/></svg>
             </span>
-            <div class="chips clickable" data-entity="u0.climate">
-              <span class="chip alert" data-id="alert" hidden><span class="dot"></span><span data-id="alert-text"></span></span>
-              <span class="chip" data-id="chip"><span class="dot"></span><span data-id="chip-text"></span></span>
             </div>
+            <span class="chip clickable" data-entity="u0.climate" data-id="chip"><span class="dot"></span><span data-id="chip-text"></span></span>
           </div>
+          <div class="notice" data-id="alert" hidden><span class="dot"></span><span data-id="alert-text"></span></div>
           <div class="help" data-id="help" hidden>${this._helpHtml()}</div>
           <svg viewBox="0 0 400 ${L.height}" role="img" aria-label="${title}">
             <line class="wall" x1="${L.wallX}" y1="6" x2="${L.wallX}" y2="${L.height - 6}"/>
@@ -870,18 +877,23 @@ class AircoHeatpumpCard extends HTMLElement {
     this._var("chip", "--st", color);
     this._text("chip-text", this._t(st.status));
 
-    // Alert chip: error code or compressor protection
-    const alerts = [];
+    // Notice under the header. Red: error code or a protection fault ("... anomaly", "Current cut", "Stop by ...").
+    // Amber: a protection control, where the unit limits itself for a while (usually normal in cold weather).
+    const faults = [];
+    const infos = [];
     for (const s of st.units) {
       const code = this._num(s.unit.e.error);
-      if (code) alerts.push(`${this._t("error")} ${code}${st.units.length > 1 ? " " + s.unit.name : ""}`);
+      if (code) faults.push(`${this._t("error")} ${code}${st.units.length > 1 ? " " + s.unit.name : ""}`);
     }
     const protection = this._str(out.protection);
-    if (protection && !["Normal", "unknown", "unavailable"].includes(protection)) {
-      alerts.push(`${this._t("protection")}: ${protection}`);
+    if (protection && !["Normal", "-", "unknown", "unavailable"].includes(protection)) {
+      (/anomaly|cut|stop/i.test(protection) ? faults : infos).push(`${this._t("protection")}: ${protection}`);
     }
-    this._hide("alert", alerts.length === 0);
-    this._text("alert-text", alerts.join(" · "));
+    const notices = [...faults, ...infos];
+    this._hide("alert", notices.length === 0);
+    this._class("alert", "fault", faults.length > 0);
+    this._class("alert", "info", faults.length === 0);
+    this._text("alert-text", notices.join(" · "));
 
     // Outdoor unit
     this._text("out-temp", `${this._t("outdoor")} ${this._fmt(this._num(out.outdoor_temp))} °C`);
@@ -1036,7 +1048,7 @@ class AircoHeatpumpCard extends HTMLElement {
           `<span>${this._t(`help_${s}`)}</span>`
       )
       .join("");
-    const drawing = ["help_streaks", "help_lines", "help_snow", "help_cop", "help_tap"]
+    const drawing = ["help_streaks", "help_lines", "help_snow", "help_notice", "help_cop", "help_tap"]
       .map((key) => `<li>${this._t(key)}</li>`)
       .join("");
     return (

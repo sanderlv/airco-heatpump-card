@@ -7,6 +7,19 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.3.3] - 2026-11-26
+
+### Fixed
+
+- Mobile: the header wraps neatly on narrow screens. The title and the ⓘ button stay together,
+  the status moves to the next line when there is not enough room.
+
+### Changed
+
+- Notices have their own row under the title. A protection control (the unit limits itself, usually normal in cold weather)
+  is shown in amber; red is kept for real faults (error code, "... anomaly", "Current cut", "Stop by ...").
+- The ⓘ explanation includes what the amber and red notices mean.
+
 ## [0.3.2] - 2026-11-26
 
 ### Fixed
