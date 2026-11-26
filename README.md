@@ -140,6 +140,20 @@ COP  = heat / electrical power
 
 The airflow per fan speed comes from `airflow` (default 300–660 m³/h). Treat the number as a trend, not a measurement.
 
+## Versions
+
+The card uses [semantic versioning](https://semver.org). Every version is a GitHub release,
+so HACS shows when an update is available. What changed per version is in [CHANGELOG.md](CHANGELOG.md).
+The version of the loaded card is printed in the browser console.
+
+### Releasing a new version
+
+1. Raise `CARD_VERSION` at the top of `airco-heatpump-card.js`.
+2. Add a section for that version to `CHANGELOG.md`.
+3. Commit, then tag and push the tag: `git tag v0.2.0 && git push origin v0.2.0`.
+
+The release workflow checks that the tag matches `CARD_VERSION` and publishes the release.
+
 ## License
 
 MIT

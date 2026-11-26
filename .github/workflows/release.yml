@@ -1,0 +1,48 @@
+name: Release
+
+# Runs when a version tag such as v0.2.0 is pushed.
+# Checks that the tag matches CARD_VERSION in the card and publishes a GitHub release
+# with the card file attached and the matching section of CHANGELOG.md as release notes.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check that the tag matches the card version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          card=$(grep -oP 'CARD_VERSION = "\K[^"]+' airco-heatpump-card.js)
+          if [ "$tag" != "$card" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match CARD_VERSION $card"
+            exit 1
+          fi
+
+      - name: Take the release notes from CHANGELOG.md
+        run: |
+          awk -v v="${GITHUB_REF_NAME#v}" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::No section for $GITHUB_REF_NAME in CHANGELOG.md"
+            exit 1
+          fi
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" airco-heatpump-card.js \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md
