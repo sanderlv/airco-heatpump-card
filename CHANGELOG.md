@@ -7,6 +7,19 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.4.0] - 2026-11-26
+
+### Added
+
+- Left/right vanes (`vanes_lr`, found automatically for MHI-AC-Ctrl): the air streaks tilt left, center or right,
+  fan out with *Wide*, bundle with *Spot* and sweep from left to right with swing.
+
+### Changed
+
+- Up/down vanes now set how far the air streaks reach: short for *Up*, long for *Down*.
+  With swing the streaks get longer and shorter in turn. Before, up/down was shown as a sideways tilt.
+- Animated preview shows both vane directions.
+
 ## [0.3.4] - 2026-11-26
 
 ### Fixed

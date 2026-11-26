@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.3.4";
+const CARD_VERSION = "0.4.0";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -50,7 +50,7 @@ const TEXTS = {
     help_fan: "Only the indoor fan runs.",
     help_standby: "On, but the compressor is idle: the room is at its setpoint.",
     help_defrost: "The outdoor unit melts frost off its coil. The indoor fan stops.",
-    help_streaks: "Air streaks: speed follows the indoor fan, direction follows the vanes.",
+    help_streaks: "Air streaks: speed follows the indoor fan. Their tilt follows the left/right vanes, their length the up/down vanes (short = up, long = down). With swing they move along.",
     help_lines: "Moving dashes: refrigerant flows while the compressor runs. Thick line = gas, thin line = liquid. The flow reverses when cooling or defrosting.",
     help_snow: "Snowflake on the outdoor unit: defrost.",
     help_cop: "COP ≈ is an estimate, not a measurement.",
@@ -105,7 +105,7 @@ const TEXTS = {
     help_fan: "Alleen de binnenventilator draait.",
     help_standby: "Aan, maar de compressor staat stil: de kamer is op temperatuur.",
     help_defrost: "De buitenunit ontdooit zijn wisselaar. De binnenventilator staat stil.",
-    help_streaks: "Luchtstrepen: de snelheid volgt de binnenventilator, de richting volgt de lamellen.",
+    help_streaks: "Luchtstrepen: de snelheid volgt de binnenventilator. De kanteling volgt de links/rechts-lamellen, de lengte de op/neer-lamellen (kort = omhoog, lang = omlaag). Bij swing bewegen ze mee.",
     help_lines: "Bewegende streepjes: koudemiddel stroomt zolang de compressor draait. Dikke leiding = gas, dunne = vloeistof. Bij koelen en defrost draait de stroom om.",
     help_snow: "Sneeuwvlok op de buitenunit: defrost.",
     help_cop: "COP ≈ is een schatting, geen meting.",
@@ -160,7 +160,8 @@ const INDOOR_KEYS = {
   coil2: { label: "Indoor coil temperature 2 (capillary)", re: /_capillary_he_temp_2$/ },
   coil3: { label: "Indoor coil temperature 3 (suction header)", re: /_suction_header_he_temp_3$/ },
   run_hours: { label: "Indoor run hours", re: /_indoor_unit_total_run_time$/ },
-  vanes: { label: "Vane position", re: /_vanes$/ },
+  vanes: { label: "Vane position up/down", re: /_vanes$/ },
+  vanes_lr: { label: "Vane position left/right", re: /_vanes_left_right$/ },
   error: { label: "Error code", re: /_error_code$/ },
 };
 
@@ -205,7 +206,20 @@ const DEFAULTS = {
 const AIR_DENSITY = 1.2; // kg/m³
 const AIR_HEAT_CAPACITY = 1005; // J/(kg·K)
 const DEFAULT_AIRFLOW = [300, 400, 500, 600, 660]; // m³/h for indoor fan speed 1, 2, 3, ...
-const VANE_ANGLE = { 1: 60, 2: 40, 3: 20, 4: 0 }; // degrees away from straight down
+// Up/down vanes (MHI-AC-Ctrl: 1 = Up, 2 = Up/Center, 3 = Center/Down, 4 = Down, 5 = Swing):
+// how far down the air streaks reach. Up = short (the air goes forward), Down = long.
+const VANE_REACH = { 1: 0.45, 2: 0.65, 3: 0.85, 4: 1 };
+// Left/right vanes (MHI-AC-Ctrl: 1 = Left, 2 = Left/Center, 3 = Center, 4 = Center/Right, 5 = Right,
+// 6 = Wide, 7 = Spot, 8 = Swing): tilt in degrees of the left, middle and right column of streaks.
+const VANE_TILT = {
+  1: [35, 35, 35],
+  2: [18, 18, 18],
+  3: [0, 0, 0],
+  4: [-18, -18, -18],
+  5: [-35, -35, -35],
+  6: [30, 0, -30],
+  7: [-12, 0, 12],
+};
 const HISTORY_REFRESH_MS = 5 * 60 * 1000;
 const OFF_STATES = ["off", "unavailable", "unknown"];
 
@@ -270,13 +284,16 @@ function snowflake(r) {
   return svg;
 }
 
-// One column of moving air streaks. The inner group is the "vane": it tilts the column.
-function airColumn(x, vaneId) {
-  let svg = `<g transform="translate(${x},0)"><g class="vane" data-id="${vaneId}"><g>`;
+// One column of moving air streaks. "vane" tilts the column (left/right vanes),
+// "reach" stretches it (up/down vanes).
+function airColumn(x, unit, column) {
+  let svg =
+    `<g transform="translate(${x},0)"><g class="vane" data-id="u${unit}-vane-${column}">` +
+    `<g class="reach" data-id="u${unit}-reach"><g>`;
   for (let i = 0; i < 3; i++) {
     svg += `<path d="M0,0 C3,3 -3,7 0,10" style="animation-delay: calc(var(--dur) * ${(-i / 3).toFixed(3)})"/>`;
   }
-  return svg + "</g></g></g>";
+  return svg + "</g></g></g></g>";
 }
 
 // Positions of everything in the drawing (viewBox width is 400).
@@ -407,9 +424,11 @@ const STYLE = `
     20% { opacity: 0.95; }
     100% { transform: translateY(30px); opacity: 0; }
   }
-  .vane { transition: transform 1.5s ease; }
-  .vane.swing { animation: ahc-swing 6s ease-in-out infinite; }
-  @keyframes ahc-swing { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-60deg); } }
+  .vane, .reach { transition: transform 1.5s ease; }
+  .vane.swing { animation: ahc-swing-lr 6s ease-in-out infinite; }
+  .reach.swing { animation: ahc-swing-ud 5s ease-in-out infinite; }
+  @keyframes ahc-swing-lr { 0%, 100% { transform: rotate(35deg); } 50% { transform: rotate(-35deg); } }
+  @keyframes ahc-swing-ud { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
 
   .snow { opacity: 0; transition: opacity 0.8s; }
   .defrost .snow { opacity: 1; }
@@ -417,7 +436,7 @@ const STYLE = `
   .snow .flake { animation: ahc-spin 10s linear infinite; }
   .snow .halo { fill: #dff6ff; opacity: 0.85; }
 
-  .anim-off .spin, .anim-off .hum.run, .anim-off .vane.swing, .anim-off .snow .flake,
+  .anim-off .spin, .anim-off .hum.run, .anim-off .vane.swing, .anim-off .reach.swing, .anim-off .snow .flake,
   .anim-off .flow.run, .anim-off .air.run path { animation: none !important; }
   .anim-off .air.run path { opacity: 0.85; }
   .anim-off .air.run g path:nth-child(1) { transform: translateY(4px); }
@@ -642,7 +661,7 @@ class AircoHeatpumpCard extends HTMLElement {
           </g>
           <g transform="translate(72,46)">
             <g class="air" data-id="u${i}-air">
-              ${airColumn(-36, `u${i}-vane`)}${airColumn(0, `u${i}-vane`)}${airColumn(36, `u${i}-vane`)}
+              ${airColumn(-36, i, 0)}${airColumn(0, i, 1)}${airColumn(36, i, 2)}
             </g>
           </g>
         </g>`
@@ -818,7 +837,8 @@ class AircoHeatpumpCard extends HTMLElement {
         target: climate?.attributes.temperature ?? null,
         fan: on ? this._num(u.e.indoor_fan) ?? 0 : 0,
         vanes: this._num(u.e.vanes),
-        swing: ["both", "vertical"].includes(climate?.attributes.swing_mode),
+        vanesLr: this._num(u.e.vanes_lr),
+        swingMode: climate?.attributes.swing_mode,
         c1,
         c2,
         c3,
@@ -948,10 +968,17 @@ class AircoHeatpumpCard extends HTMLElement {
       this._var(`u${i}-air`, "--air", `var(${airColor})`);
       this._var(`u${i}-air`, "--dur", `${clamp(3.2 / (s.fan || 1), 0.8, 3.5)}s`);
 
-      const swing = s.vanes === 5 || (s.vanes == null && s.swing);
-      this._class(`u${i}-vane`, "swing", swing);
-      const angle = swing ? 0 : VANE_ANGLE[s.vanes] ?? 20;
-      this._var(`u${i}-vane`, "transform", swing ? "" : `rotate(${-angle}deg)`);
+      // Up/down vanes: how far the streaks reach. Left/right vanes: their tilt. Swing animates either one.
+      // Without vane sensors, the swing mode of the climate entity is used.
+      const swingUpDown = s.vanes === 5 || (s.vanes == null && ["both", "vertical"].includes(s.swingMode));
+      const swingLeftRight = s.vanesLr === 8 || (s.vanesLr == null && ["both", "horizontal"].includes(s.swingMode));
+      this._class(`u${i}-reach`, "swing", swingUpDown);
+      this._var(`u${i}-reach`, "transform", swingUpDown ? "" : `scaleY(${VANE_REACH[s.vanes] ?? 0.85})`);
+      const tilt = VANE_TILT[s.vanesLr] ?? [0, 0, 0];
+      [0, 1, 2].forEach((column) => {
+        this._class(`u${i}-vane-${column}`, "swing", swingLeftRight);
+        this._var(`u${i}-vane-${column}`, "transform", swingLeftRight ? "" : `rotate(${tilt[column]}deg)`);
+      });
 
       this._text(`u${i}-room`, s.room == null ? "–" : `${this._fmt(s.room)}°`);
       this._text(

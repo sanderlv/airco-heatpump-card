@@ -11,7 +11,7 @@ With [MHI-AC-Ctrl](https://github.com/ginkage/MHI-AC-Ctrl-ESPHome) (ESPHome) the
 - **Outdoor unit** with a spinning fan and a compressor that shakes while it runs.
 - **Refrigerant flow** between outdoor and indoor unit. It reverses when cooling or defrosting.
 - **Defrost**: the outdoor coil frosts over, a snowflake appears and the refrigerant turns icy blue.
-- **Indoor units** with a spinning fan and air streaks that follow fan speed and vane position (swing included).
+- **Indoor units** with a spinning fan and air streaks that follow fan speed and both vane directions (swing included).
 - **Temperatures**: outdoor air, outdoor coil, discharge gas, superheat, expansion valve, indoor coil, room and setpoint.
 - **Tiles**: power, energy today, estimated COP, compressor, defrosts today and filter counters.
 - **Timeline** of the last 24 hours.
@@ -69,9 +69,14 @@ The same color is used for the status chip, the air streaks, the refrigerant lin
 
 - **Color**: the status, see the table above.
 - **Speed**: follows the indoor fan speed. Faster streaks = more air.
-- **Direction**: follows the vane position, from almost horizontal to straight down. With swing, the streaks sweep up and down.
+- **Tilt**: follows the **left/right vanes**: Left, Left/Center, Center, Center/Right, Right.
+  *Wide* fans the streaks out, *Spot* bundles them. With swing the streaks sweep from left to right.
+- **Length**: follows the **up/down vanes**. *Up* gives short streaks (the air goes forward),
+  *Down* long ones (the air goes down). With swing the streaks get longer and shorter in turn.
 - **No streaks**: the indoor fan stands still. That happens when the unit is off, and during defrost
   (the indoor fan stops so no cold air blows into the room).
+
+Without vane sensors the card uses the swing mode of the climate entity.
 
 ### Refrigerant lines
 
@@ -241,7 +246,8 @@ indoor:
 | `indoor_fan` | Indoor fan speed |
 | `coil1`, `coil2`, `coil3` | Indoor coil temperatures (MHI: U-bend, capillary, suction header) |
 | `run_hours` | Indoor run hours |
-| `vanes` | Vane position (1–4, 5 = swing) |
+| `vanes` | Up/down vane position (MHI: 1 = Up … 4 = Down, 5 = Swing) |
+| `vanes_lr` | Left/right vane position (MHI: 1 = Left … 5 = Right, 6 = Wide, 7 = Spot, 8 = Swing) |
 | `error` | Error code |
 
 `energy_today` is only found automatically when its entity_id ends in `_energy_today` or `_daily_energy`.
