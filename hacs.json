@@ -1,0 +1,6 @@
+{
+  "name": "Airco Heat Pump Card",
+  "filename": "airco-heatpump-card.js",
+  "render_readme": true,
+  "homeassistant": "2024.8.0"
+}
