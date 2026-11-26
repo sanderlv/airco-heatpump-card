@@ -7,6 +7,20 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.2.0] - 2026-11-26
+
+### Added
+
+- Visual editor: set everything in the dashboard editor. Under every sensor field it shows
+  which sensor was found automatically.
+- Tapping the indoor unit (including its temperatures), the title or the status chip opens the climate dialog.
+- HACS validation workflow.
+
+### Changed
+
+- README: explanation of the colors, air streaks, refrigerant lines, all values, tiles, timeline and alerts,
+  plus a troubleshooting section.
+
 ## [0.1.0] - 2026-11-26
 
 ### Added

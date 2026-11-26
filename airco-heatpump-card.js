@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.1.0";
+const CARD_VERSION = "0.2.0";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -103,36 +103,69 @@ const TEXTS = {
 
 // Entities that belong to the outdoor unit (read from the first indoor unit).
 const OUTDOOR_KEYS = {
-  defrost: { domain: "binary_sensor", re: /_defrost$/ },
-  outdoor_temp: { re: /_outdoor_temperature$/ },
-  compressor: { re: /_compressor_frequency$/ },
-  outdoor_fan: { re: /_outdoor_unit_fan_speed$/ },
-  outdoor_coil: { re: /_outdoor_he_temp$/ },
-  discharge: { re: /_outdoor_unit_discharge_pipe$/ },
-  superheat: { re: /_discharge_pipe_super_heat$/ },
-  exp_valve: { re: /_exp_valve$/ },
-  protection: { re: /_compressor_protection_status$/ },
-  compressor_hours: { re: /_compressor_total_run_time$/ },
-  power: { re: /_power$/, test: (s) => s.attributes.unit_of_measurement === "W" },
-  current: { re: /_current_power$/, test: (s) => s.attributes.unit_of_measurement === "A" },
-  energy_today: { re: /_(energy_today|daily_energy)$/ },
+  defrost: { label: "Defrost", domain: "binary_sensor", re: /_defrost$/ },
+  outdoor_temp: { label: "Outdoor temperature", re: /_outdoor_temperature$/ },
+  compressor: { label: "Compressor frequency", re: /_compressor_frequency$/ },
+  outdoor_fan: { label: "Outdoor fan speed", re: /_outdoor_unit_fan_speed$/ },
+  outdoor_coil: { label: "Outdoor coil temperature", re: /_outdoor_he_temp$/ },
+  discharge: { label: "Discharge gas temperature", re: /_outdoor_unit_discharge_pipe$/ },
+  superheat: { label: "Discharge superheat", re: /_discharge_pipe_super_heat$/ },
+  exp_valve: { label: "Expansion valve", re: /_exp_valve$/ },
+  protection: { label: "Compressor protection", re: /_compressor_protection_status$/ },
+  compressor_hours: { label: "Compressor run hours", re: /_compressor_total_run_time$/ },
+  power: { label: "Power (W)", re: /_power$/, test: (s) => s.attributes.unit_of_measurement === "W" },
+  current: { label: "Current (A)", re: /_current_power$/, test: (s) => s.attributes.unit_of_measurement === "A" },
+  energy_today: { label: "Energy today", re: /_(energy_today|daily_energy)$/ },
 };
 
 // Entities that belong to each indoor unit.
 const INDOOR_KEYS = {
-  room: { re: /_return_air_temperature$/ },
-  indoor_fan: { re: /_indoor_unit_fan_speed$/ },
-  coil1: { re: /_u_bend_he_temp_1$/ },
-  coil2: { re: /_capillary_he_temp_2$/ },
-  coil3: { re: /_suction_header_he_temp_3$/ },
-  run_hours: { re: /_indoor_unit_total_run_time$/ },
-  vanes: { re: /_vanes$/ },
-  error: { re: /_error_code$/ },
+  room: { label: "Room (return air) temperature", re: /_return_air_temperature$/ },
+  indoor_fan: { label: "Indoor fan speed", re: /_indoor_unit_fan_speed$/ },
+  coil1: { label: "Indoor coil temperature 1 (U-bend)", re: /_u_bend_he_temp_1$/ },
+  coil2: { label: "Indoor coil temperature 2 (capillary)", re: /_capillary_he_temp_2$/ },
+  coil3: { label: "Indoor coil temperature 3 (suction header)", re: /_suction_header_he_temp_3$/ },
+  run_hours: { label: "Indoor run hours", re: /_indoor_unit_total_run_time$/ },
+  vanes: { label: "Vane position", re: /_vanes$/ },
+  error: { label: "Error code", re: /_error_code$/ },
 };
+
+// Finds the entities of the table on the same device as the climate entity.
+function discoverEntities(hass, climateId, table) {
+  const registry = hass?.entities;
+  const found = {};
+  const deviceId = registry?.[climateId]?.device_id;
+  if (!deviceId) return found;
+  const ids = Object.values(registry)
+    .filter((e) => e.device_id === deviceId)
+    .map((e) => e.entity_id);
+  for (const [key, rule] of Object.entries(table)) {
+    const match = ids.find((id) => {
+      const [domain, objectId] = id.split(".");
+      if (domain !== (rule.domain || "sensor")) return false;
+      const plain = objectId.replace(/_\d+$/, "");
+      if (!rule.re.test(objectId) && !rule.re.test(plain)) return false;
+      const st = hass.states[id];
+      return !rule.test || (st && rule.test(st));
+    });
+    if (match) found[key] = match;
+  }
+  return found;
+}
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
+
+const DEFAULTS = {
+  language: "auto",
+  animations: "auto",
+  cop: true,
+  timeline: true,
+  timeline_hours: 24,
+  voltage: 230,
+  coil_factor: 0.7,
+};
 
 const AIR_DENSITY = 1.2; // kg/m³
 const AIR_HEAT_CAPACITY = 1005; // J/(kg·K)
@@ -363,6 +396,11 @@ class AircoHeatpumpCard extends HTMLElement {
     this._historyKey = null;
   }
 
+  static async getConfigElement() {
+    await loadHaForm();
+    return document.createElement(EDITOR_TAG);
+  }
+
   static getStubConfig(hass) {
     const climate = Object.keys(hass.states).find((id) => id.startsWith("climate."));
     return { entity: climate || "climate.airco" };
@@ -381,17 +419,7 @@ class AircoHeatpumpCard extends HTMLElement {
         throw new Error("Every indoor unit needs 'climate: climate.xxx'");
       }
     }
-    this._config = {
-      language: "auto",
-      animations: "auto",
-      cop: true,
-      timeline: true,
-      timeline_hours: 24,
-      voltage: 230,
-      coil_factor: 0.7,
-      ...config,
-      indoor,
-    };
+    this._config = { ...DEFAULTS, ...config, indoor };
     this._resolved = null;
     this._built = false;
     this._history = null;
@@ -482,25 +510,7 @@ class AircoHeatpumpCard extends HTMLElement {
   }
 
   _discover(climateId, table) {
-    const registry = this._hass.entities;
-    const found = {};
-    const deviceId = registry?.[climateId]?.device_id;
-    if (!deviceId) return found;
-    const ids = Object.values(registry)
-      .filter((e) => e.device_id === deviceId)
-      .map((e) => e.entity_id);
-    for (const [key, rule] of Object.entries(table)) {
-      const match = ids.find((id) => {
-        const [domain, objectId] = id.split(".");
-        if (domain !== (rule.domain || "sensor")) return false;
-        const plain = objectId.replace(/_\d+$/, "");
-        if (!rule.re.test(objectId) && !rule.re.test(plain)) return false;
-        const st = this._hass.states[id];
-        return !rule.test || (st && rule.test(st));
-      });
-      if (match) found[key] = match;
-    }
-    return found;
+    return discoverEntities(this._hass, climateId, table);
   }
 
   _entityFor(ref) {
@@ -549,12 +559,8 @@ class AircoHeatpumpCard extends HTMLElement {
               <circle class="grille" r="11"/>
               <g class="spin" data-id="u${i}-fan">${blades(3, 9.5)}</g>
             </g>
-          </g>
-          <g class="clickable" data-entity="u${i}.coil1">
-            <text class="small muted" x="38" y="17" data-id="u${i}-coil-label">${this._t("coil")}</text>
+            <text class="small muted" x="38" y="17">${this._t("coil")}</text>
             <text x="38" y="31" data-id="u${i}-coil">–</text>
-          </g>
-          <g class="clickable" data-entity="u${i}.room">
             <text class="big" x="142" y="23" text-anchor="end" data-id="u${i}-room">–</text>
             <text class="small muted" x="142" y="35" text-anchor="end" data-id="u${i}-target"></text>
           </g>
@@ -573,8 +579,8 @@ class AircoHeatpumpCard extends HTMLElement {
       <ha-card>
         <div class="wrap" data-id="wrap">
           <div class="header">
-            <div class="title">${title}</div>
-            <div class="chips">
+            <div class="title clickable" data-entity="u0.climate">${title}</div>
+            <div class="chips clickable" data-entity="u0.climate">
               <span class="chip alert" data-id="alert" hidden><span class="dot"></span><span data-id="alert-text"></span></span>
               <span class="chip" data-id="chip"><span class="dot"></span><span data-id="chip-text"></span></span>
             </div>
@@ -1104,8 +1110,243 @@ class AircoHeatpumpCard extends HTMLElement {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Visual editor
+//
+// Uses Home Assistant's own form builder (ha-form), so the fields look and work
+// like the rest of the dashboard editor. Empty sensor fields mean "find it
+// automatically"; the helper text under each field shows what was found.
+// ---------------------------------------------------------------------------
+
+const EDITOR_TAG = `${CARD_TAG}-editor`;
+
+const LABELS = {
+  name: "Title",
+  language: "Language",
+  animations: "Animations",
+  cop: "Show estimated COP",
+  timeline: "Show timeline",
+  timeline_hours: "Timeline (hours)",
+  climate: "Climate entity",
+  filter: "Filter helper",
+  filter_days: "Clean filter every (days)",
+  filter_hours: "Clean filter every (run hours)",
+  airflow: "Airflow per fan speed (m³/h)",
+  coil_factor: "Coil factor",
+  voltage: "Mains voltage",
+};
+
+const HELPERS = {
+  name: "Leave empty to use the name of the climate entity.",
+  animations: "Auto follows the 'reduce motion' setting of your device.",
+  filter: "A date helper counts days, a number helper counts indoor run hours. Tap the filter tile after cleaning.",
+  airflow: "From the datasheet, comma separated, e.g. 300, 400, 500, 600. Only used for the COP estimate.",
+  coil_factor: "Share of the coil-to-room temperature difference that ends up in the air. Only used for the COP estimate.",
+  voltage: "Turns amps into watts when there is no power sensor.",
+};
+
+// Home Assistant loads ha-form lazily. Opening a built-in card editor loads it.
+async function loadHaForm() {
+  if (customElements.get("ha-form")) return;
+  try {
+    const helpers = await window.loadCardHelpers();
+    const card = await helpers.createCardElement({ type: "tile", entity: "sun.sun" });
+    await card.constructor.getConfigElement();
+  } catch (err) {
+    console.warn(`${CARD_TAG}: could not load the form elements`, err);
+  }
+}
+
+// Card config -> form data (defaults filled in, airflow as text).
+function toFormData(config) {
+  const { type, entity, indoor, ...rest } = config;
+  const units = indoor || (entity ? [{ climate: entity }] : []);
+  const unit = (u) => {
+    if (!u) return {};
+    const copy = typeof u === "string" ? { climate: u } : { ...u };
+    if (Array.isArray(copy.airflow)) copy.airflow = copy.airflow.join(", ");
+    return copy;
+  };
+  return { ...DEFAULTS, ...rest, unit0: unit(units[0]), unit1: unit(units[1]) };
+}
+
+// Removes empty values, also inside nested objects.
+function compact(obj) {
+  const out = {};
+  for (const [key, value] of Object.entries(obj || {})) {
+    if (value === undefined || value === null || value === "") continue;
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const inner = compact(value);
+      if (Object.keys(inner).length) out[key] = inner;
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+// Form data -> card config (defaults and empty fields left out, so the YAML stays short).
+function fromFormData(type, data) {
+  const { unit0, unit1, ...rest } = data;
+  const config = { type, ...compact(rest) };
+  for (const [key, value] of Object.entries(DEFAULTS)) {
+    if (config[key] === value) delete config[key];
+  }
+  const indoor = [unit0, unit1]
+    .map((u) => compact(u))
+    .filter((u) => u.climate)
+    .map((u) => {
+      if (typeof u.airflow === "string") {
+        const numbers = u.airflow.split(/[\s,;]+/).map(Number).filter((n) => n > 0);
+        if (numbers.length) u.airflow = numbers;
+        else delete u.airflow;
+      }
+      return u;
+    });
+  if (indoor.length) config.indoor = indoor;
+  return config;
+}
+
+function sensorFields(table, unitIndex) {
+  return Object.entries(table).map(([key, rule]) => ({
+    name: key,
+    _label: rule.label,
+    _unit: unitIndex,
+    selector: { entity: { domain: rule.domain || "sensor" } },
+  }));
+}
+
+function buildSchema(data) {
+  const unitSchema = (i) => {
+    const u = data[`unit${i}`] || {};
+    const filterField = !u.filter
+      ? []
+      : u.filter.startsWith("input_number.")
+        ? [{ name: "filter_hours", selector: { number: { min: 10, max: 5000, step: 10, mode: "box" } } }]
+        : [{ name: "filter_days", selector: { number: { min: 1, max: 365, mode: "box" } } }];
+    return [
+      { name: "climate", required: i === 0, selector: { entity: { domain: "climate" } } },
+      { name: "name", _label: "Name", selector: { text: {} } },
+      { name: "filter", selector: { entity: { domain: ["input_datetime", "input_number"] } } },
+      ...filterField,
+      { name: "airflow", selector: { text: {} } },
+      { type: "expandable", name: "entities", title: "Indoor unit sensors", schema: sensorFields(INDOOR_KEYS, i) },
+    ];
+  };
+
+  return [
+    { name: "name", selector: { text: {} } },
+    {
+      type: "grid",
+      name: "",
+      schema: [
+        {
+          name: "language",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "auto", label: "Auto (Home Assistant language)" },
+                { value: "en", label: "English" },
+                { value: "nl", label: "Nederlands" },
+              ],
+            },
+          },
+        },
+        {
+          name: "animations",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "auto", label: "Auto" },
+                { value: "always", label: "Always" },
+                { value: "off", label: "Off" },
+              ],
+            },
+          },
+        },
+      ],
+    },
+    {
+      type: "grid",
+      name: "",
+      schema: [
+        { name: "cop", selector: { boolean: {} } },
+        { name: "timeline", selector: { boolean: {} } },
+        { name: "timeline_hours", selector: { number: { min: 3, max: 72, mode: "box" } } },
+      ],
+    },
+    { type: "expandable", name: "unit0", title: "Indoor unit", expanded: true, schema: unitSchema(0) },
+    {
+      type: "expandable",
+      name: "unit1",
+      title: "Second indoor unit on the same outdoor unit (optional)",
+      schema: unitSchema(1),
+    },
+    { type: "expandable", name: "entities", title: "Outdoor unit sensors", schema: sensorFields(OUTDOOR_KEYS, -1) },
+    {
+      type: "expandable",
+      name: "",
+      title: "Advanced",
+      schema: [
+        { name: "coil_factor", selector: { number: { min: 0.1, max: 1, step: 0.05, mode: "box" } } },
+        { name: "voltage", selector: { number: { min: 100, max: 400, mode: "box" } } },
+      ],
+    },
+  ];
+}
+
+class AircoHeatpumpCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config;
+    this._data = toFormData(config);
+    this._schema = buildSchema(this._data);
+    this._found = {};
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  _render() {
+    if (!this._config || !this._hass) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (schema) => schema._label || LABELS[schema.name] || schema.name;
+      this._form.computeHelper = (schema) => this._helper(schema);
+      this._form.addEventListener("value-changed", (ev) => this._changed(ev.detail.value));
+      this.appendChild(this._form);
+    }
+    this._form.hass = this._hass;
+    this._form.data = this._data;
+    this._form.schema = this._schema;
+  }
+
+  // For sensor fields: show which entity the card found by itself.
+  _helper(schema) {
+    if (schema._unit === undefined) return HELPERS[schema.name];
+    const outdoor = schema._unit < 0;
+    const unit = this._data[`unit${outdoor ? 0 : schema._unit}`] || {};
+    const own = outdoor ? this._data.entities?.[schema.name] : unit.entities?.[schema.name];
+    if (own || !unit.climate) return undefined;
+    const cacheKey = `${outdoor ? "out" : "in"}|${unit.climate}`;
+    this._found[cacheKey] ||= discoverEntities(this._hass, unit.climate, outdoor ? OUTDOOR_KEYS : INDOOR_KEYS);
+    const found = this._found[cacheKey][schema.name];
+    return found ? `Found automatically: ${found}` : "Not found automatically";
+  }
+
+  _changed(data) {
+    const config = fromFormData(this._config.type, data);
+    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
+  }
+}
+
 if (!customElements.get(CARD_TAG)) {
   customElements.define(CARD_TAG, AircoHeatpumpCard);
+  customElements.define(EDITOR_TAG, AircoHeatpumpCardEditor);
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: CARD_TAG,
