@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.3.0";
+const CARD_VERSION = "0.3.1";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -1241,7 +1241,9 @@ const HELPERS = {
   name: "Leave empty to use the name of the climate entity.",
   animations: "Auto follows the 'reduce motion' setting of your device.",
   filter: "A date helper counts days, a number helper counts indoor run hours. Tap the filter tile after cleaning.",
-  airflow: "From the datasheet, comma separated, e.g. 300, 400, 500, 600. Only used for the COP estimate.",
+  airflow:
+    "One value in m³/h per indoor fan speed (1, 2, 3, ...), comma separated, from the datasheet (m³/min × 60). " +
+    "MHI-AC-Ctrl: 2 = ULo, 3 = Lo, 4 = Me, 5 = Hi. Only used for the COP estimate.",
   coil_factor: "Share of the coil-to-room temperature difference that ends up in the air. Only used for the COP estimate.",
   voltage: "Turns amps into watts when there is no power sensor.",
 };

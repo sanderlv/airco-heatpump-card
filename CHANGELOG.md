@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.3.1] - 2026-11-26
+
+### Changed
+
+- Editor: the help text of *Airflow per fan speed* explains how the values map to the fan speeds (MHI-AC-Ctrl: 2 = ULo … 5 = Hi).
+- README: animated preview, step-by-step filter counter guide with cleaning interval and reminder automation,
+  and how to take the airflow from the datasheet.
+
 ## [0.3.0] - 2026-11-26
 
 ### Added
