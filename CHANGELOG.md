@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.3.4] - 2026-11-26
+
+### Fixed
+
+- Two indoor units on one outdoor unit: refrigerant only flows to an indoor unit that is on.
+  Each line now has the color and direction of its own unit.
+- The grey pipe of the second indoor unit no longer hides the flow of the first on the shared part.
+
 ## [0.3.3] - 2026-11-26
 
 ### Fixed

@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.3.3";
+const CARD_VERSION = "0.3.4";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -598,17 +598,21 @@ class AircoHeatpumpCard extends HTMLElement {
       return `<line x1="${x}" y1="12" x2="${x}" y2="108"/>`;
     }).join("");
 
-    const pipes = L.units
-      .map((p) => {
-        const gas = `M${L.gasOut.x},${L.gasOut.y} H${L.gasX} V${p.gasY} H${p.x}`;
-        const liq = `M${L.liqOut.x},${L.liqOut.y} H${L.liqX} V${p.liqY} H${p.x}`;
-        return (
-          `<path class="pipe liq" d="${liq}"/><path class="pipe gas" d="${gas}"/>` +
-          `<path class="flow liq" data-id="flow-liq" d="${liq}"/>` +
-          `<path class="flow gas" data-id="flow-gas" d="${gas}"/>`
-        );
-      })
-      .join("");
+    // One gas and one liquid line per indoor unit. All grey pipes first, then the moving flows on top,
+    // so the shared part never hides the flow of a unit that runs.
+    const lines = L.units.map((p) => ({
+      gas: `M${L.gasOut.x},${L.gasOut.y} H${L.gasX} V${p.gasY} H${p.x}`,
+      liq: `M${L.liqOut.x},${L.liqOut.y} H${L.liqX} V${p.liqY} H${p.x}`,
+    }));
+    const pipes =
+      lines.map((l) => `<path class="pipe liq" d="${l.liq}"/><path class="pipe gas" d="${l.gas}"/>`).join("") +
+      lines
+        .map(
+          (l, i) =>
+            `<path class="flow liq" data-id="u${i}-flow-liq" d="${l.liq}"/>` +
+            `<path class="flow gas" data-id="u${i}-flow-gas" d="${l.gas}"/>`
+        )
+        .join("");
 
     const indoor = units
       .map(
@@ -916,16 +920,20 @@ class AircoHeatpumpCard extends HTMLElement {
     this._text("out-line1", line1.filter(Boolean).join(" · "));
     this._text("out-line2", line2.filter(Boolean).join(" · "));
 
-    // Refrigerant flow: hot gas goes to the indoor unit when heating, reversed when cooling or defrosting.
-    const reversed = ["cool", "dry", "defrost"].includes(st.status);
-    const pipeColor = st.status === "standby" || st.status === "fan" ? "var(--ahc-standby)" : color;
-    for (const id of ["flow-gas", "flow-liq"]) {
-      this._class(id, "run", st.running);
-      this._var(id, "--pipe", pipeColor);
-      this._var(id, "--dur", `${clamp(60 / (st.comp || 60), 0.35, 3)}s`);
-    }
-    this._class("flow-gas", "rev", reversed);
-    this._class("flow-liq", "rev", !reversed);
+    // Refrigerant flow, per indoor unit: only to a unit that is on while the compressor runs.
+    // Hot gas goes to the indoor unit when heating; the flow reverses when cooling or defrosting.
+    st.units.forEach((s, i) => {
+      const flows = st.running && s.on;
+      const reversed = ["cool", "dry", "defrost"].includes(s.status);
+      const pipeColor = ["standby", "fan"].includes(s.status) ? "var(--ahc-standby)" : `var(--ahc-${s.status})`;
+      for (const id of [`u${i}-flow-gas`, `u${i}-flow-liq`]) {
+        this._class(id, "run", flows);
+        this._var(id, "--pipe", pipeColor);
+        this._var(id, "--dur", `${clamp(60 / (st.comp || 60), 0.35, 3)}s`);
+      }
+      this._class(`u${i}-flow-gas`, "rev", reversed);
+      this._class(`u${i}-flow-liq`, "rev", !reversed);
+    });
 
     // Indoor units
     st.units.forEach((s, i) => {
