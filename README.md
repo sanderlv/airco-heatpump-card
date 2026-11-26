@@ -4,7 +4,7 @@ Animated Home Assistant card for **air-to-air heat pumps** (split airco).
 Works with any air-to-air heat pump in Home Assistant: pick the sensors in the visual editor.
 With [MHI-AC-Ctrl](https://github.com/ginkage/MHI-AC-Ctrl-ESPHome) (ESPHome) the card finds them by itself.
 
-![Preview](images/preview.png)
+![Preview](images/preview.gif)
 
 ## Features
 
