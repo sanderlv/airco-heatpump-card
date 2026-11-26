@@ -150,9 +150,11 @@ The version of the loaded card is printed in the browser console.
 
 1. Raise `CARD_VERSION` at the top of `airco-heatpump-card.js`.
 2. Add a section for that version to `CHANGELOG.md`.
-3. Commit, then tag and push the tag: `git tag v0.2.0 && git push origin v0.2.0`.
+3. Commit and push.
+4. On GitHub: **Releases → Draft a new release**, create tag `v0.2.0` on `main`, title `v0.2.0`, **Publish release**.
 
-The release workflow checks that the tag matches `CARD_VERSION` and publishes the release.
+The release workflow then checks that the tag matches `CARD_VERSION`, fills the release notes
+from `CHANGELOG.md` and attaches `airco-heatpump-card.js` to the release.
 
 ## License
 
