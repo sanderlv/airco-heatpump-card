@@ -7,6 +7,13 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.3.2] - 2026-11-26
+
+### Fixed
+
+- Title hidden behind the ⓘ button in a narrow card with a long alert chip
+  (for example *Protection: Low pressure protection control*). The chips now move to their own line.
+
 ## [0.3.1] - 2026-11-26
 
 ### Changed

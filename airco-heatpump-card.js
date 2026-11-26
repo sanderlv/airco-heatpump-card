@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.3.1";
+const CARD_VERSION = "0.3.2";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -315,9 +315,9 @@ const STYLE = `
     --ahc-off: #475569;
   }
   ha-card { padding: 12px 14px 14px; overflow: hidden; }
-  .header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
   .title { font-size: 1.15em; font-weight: 500; color: var(--primary-text-color); }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
   .chip {
     display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
     font-size: 0.85em; color: var(--primary-text-color);
@@ -325,7 +325,8 @@ const STYLE = `
   }
   .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--st, var(--ahc-off)); }
   .chip.alert { --st: var(--error-color, #ef4444); }
-  .title { flex: 1; min-width: 0; }
+  /* The title never gets narrower than its longest word; long chips move to their own line instead. */
+  .title { flex: 1; }
   .help-btn {
     display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
     border-radius: 50%; color: var(--secondary-text-color); cursor: pointer; flex: none;
