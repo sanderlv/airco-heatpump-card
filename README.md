@@ -155,8 +155,8 @@ type: custom:airco-heatpump-card
 name: Living room
 indoor:
   - climate: climate.living_room
-    filter: input_datetime.living_room_filter
-    filter_days: 30
+    filter: input_datetime.living_room_airco_filter
+    filter_days: 14
 ```
 
 ### Two indoor units on one outdoor unit
@@ -245,13 +245,75 @@ indoor:
 
 ## Filter counter
 
-Create a helper (Settings → Devices & services → Helpers):
+The card can remind you to clean the air filter of every indoor unit. Each indoor unit needs one helper that stores
+the date its filter was last cleaned.
 
-- **Date and/or time** (`input_datetime`): the card shows the days since cleaning. Recommended.
-- **Number** (`input_number`, max e.g. 100000): the card shows the indoor run hours since cleaning.
-  MHI-AC-Ctrl reports run hours in steps of 100 h.
+### 1. Create a helper
 
-After cleaning the filter, tap the filter tile and confirm. The card writes the current date (or run hours) to the helper.
+Settings → Devices & services → **Helpers** → **Create helper** → **Date and/or time**:
+
+- **Name**: for example `Living room airco filter`. This gives the entity `input_datetime.living_room_airco_filter`.
+- Choose **Date**. A time is not needed.
+- Optional icon: `mdi:air-filter`.
+
+Open the new helper and set the date the filter was last cleaned (today, if you just cleaned it).
+Until the helper has a date, the card hides the filter tile.
+
+With two indoor units on one card, create a helper for each of them.
+
+### 2. Link it to the indoor unit
+
+In the card editor: **Indoor unit** → **Filter helper** → pick the helper, then set **Clean filter every (days)**.
+
+Or in YAML:
+
+```yaml
+type: custom:airco-heatpump-card
+indoor:
+  - climate: climate.living_room
+    filter: input_datetime.living_room_airco_filter
+    filter_days: 14
+```
+
+### 3. Use it
+
+- The tile shows the days since cleaning against the interval, for example `9 / 14 d`.
+- The bar is green, turns orange at 80 % of the interval and red when cleaning is due. Then the tile says *clean filter*.
+- After cleaning the filter, **tap the filter tile** and confirm. The card sets the helper to today and the counter starts at 0 again.
+- With two indoor units, each unit has its own tile, named after the unit (for example *Filter Bedroom*).
+
+### How often?
+
+Mitsubishi Heavy Industries' user manuals advise to clean the air filter **at least every two weeks** during the
+heating and cooling season: a clogged filter reduces airflow and efficiency. For a unit that runs little,
+30 days is reasonable. Extra filters (allergen, deodorizing) have their own interval: see the manual of your unit.
+The card's default interval is 30 days; set `filter_days: 14` to follow the manual.
+
+### Reminder automation (optional)
+
+The helper can also be used in an automation, for example a daily notification when the filter is due:
+
+```yaml
+alias: Airco filter reminder
+triggers:
+  - trigger: time
+    at: "18:00:00"
+conditions:
+  - condition: template
+    value_template: >
+      {{ (now().timestamp() - state_attr('input_datetime.living_room_airco_filter', 'timestamp')) / 86400 >= 14 }}
+actions:
+  - action: notify.notify
+    data:
+      message: Time to clean the air filter of the living room airco.
+```
+
+### Run hours instead of days
+
+Instead of a date helper you can use a **Number** helper (`input_number`, minimum 0, maximum 100000, step 1)
+with `filter_hours` instead of `filter_days`. The card then counts the indoor unit's run hours since cleaning,
+and tapping the tile stores the current run hours in the helper. MHI-AC-Ctrl reports run hours in steps of 100 h,
+so for those units the date helper is more precise.
 
 ## About the COP
 
@@ -272,6 +334,7 @@ not the water taken out of the air, so cooling is underestimated. Treat the numb
 | The card is not in the card picker after installing | Reload the browser (clear the cache if needed). |
 | Timeline empty or defrost counter shows `–` | The card reads the history from the recorder. Make sure the defrost, compressor frequency and climate entities are not excluded from the recorder. |
 | Nothing moves | Your device has "reduce motion" turned on. Set **Animations** to **Always**. |
+| The filter tile is missing | No filter helper is set for the indoor unit, or the helper has no date yet. See [Filter counter](#filter-counter). |
 | A value shows `–` | The sensor was not found or is unavailable. Pick it in the editor under the sensors sections. |
 | Power shows a wrong value with two indoor units | Outdoor values come from the first indoor unit. Put the unit whose sensors measure the outdoor unit first, or set `power` under `entities`. |
 
