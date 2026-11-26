@@ -198,7 +198,7 @@ Per indoor unit:
 | `name` | Name shown in the drawing (only with two indoor units). |
 | `filter` | `input_datetime` (counts days) or `input_number` (counts run hours). |
 | `filter_days` / `filter_hours` | Interval before the filter needs cleaning (default 30 days / 300 hours). |
-| `airflow` | Airflow in m³/h per indoor fan speed, e.g. `[300, 400, 500, 600]` (from the datasheet). |
+| `airflow` | Airflow in m³/h per indoor fan speed, from the datasheet. See [Airflow from the datasheet](#airflow-from-the-datasheet). |
 | `entities` | Indoor unit sensors, see below. |
 
 ### Sensors
@@ -325,7 +325,24 @@ COP  = heat / electrical power
 ```
 
 The airflow per fan speed comes from `airflow` (default 300–660 m³/h). When cooling, only the temperature drop is counted,
-not the water taken out of the air, so cooling is underestimated. Treat the number as a trend, not a measurement.
+not the water taken out of the air, so cooling is underestimated. At low compressor speed the difference between coil and
+room is small, so the estimate is least reliable there. Treat the number as a trend, not a measurement.
+
+### Airflow from the datasheet
+
+`airflow` is a list with one value (m³/h) per value of the indoor fan speed sensor: the first value is used at fan speed 1,
+the second at fan speed 2, and so on. Speeds above the end of the list use the last value.
+
+MHI-AC-Ctrl reports the indoor fan speed as 0–7: 0 = off, **2 = ULo, 3 = Lo, 4 = Me, 5 = Hi**
+(1 to 4 bars on the remote), and up to 7 in auto mode. Datasheets give the airflow in m³/min: multiply by 60.
+
+Example for an SRK35ZS (heating: ULo 5.6, Lo 7.0, Me 11.0, Hi 12.3 m³/min):
+
+```yaml
+indoor:
+  - climate: climate.living_room
+    airflow: [336, 336, 420, 660, 738]   # fan speed 1, 2 (ULo), 3 (Lo), 4 (Me), 5 (Hi) and higher
+```
 
 ## Troubleshooting
 
