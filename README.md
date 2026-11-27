@@ -25,8 +25,16 @@ With [MHI-AC-Ctrl](https://github.com/ginkage/MHI-AC-Ctrl-ESPHome) (ESPHome) the
 
 ### HACS / Marketplace
 
-1. Add `https://github.com/sanderlv/airco-heatpump-card` as a custom repository, type **Dashboard**.
+1. Open HACS (the Marketplace), search for **Airco Heat Pump Card** and install it.
+2. Reload the browser.
+
+<details>
+<summary>Not found? Add it as a custom repository</summary>
+
+1. In HACS (the Marketplace), add `https://github.com/sanderlv/airco-heatpump-card` as a custom repository, type **Dashboard**.
 2. Install **Airco Heat Pump Card** and reload the browser.
+
+</details>
 
 ### Manual
 

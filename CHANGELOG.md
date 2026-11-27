@@ -7,6 +7,17 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.4.1] - 2026-11-27
+
+### Security
+
+- The card title and the indoor unit names (from the card config or the climate entity's friendly name)
+  are now escaped before they go into the card's markup. Before, a name containing HTML could run as script on the dashboard.
+
+### Changed
+
+- README: installation starts with searching for the card in HACS; the custom repository is the fallback.
+
 ## [0.4.0] - 2026-11-26
 
 ### Added

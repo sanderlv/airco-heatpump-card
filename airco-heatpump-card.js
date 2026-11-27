@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.4.0";
+const CARD_VERSION = "0.4.1";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -246,6 +246,12 @@ function statusFor(mode, running, coilWarmerThanRoom) {
   if (mode === "dry") return "dry";
   if (coilWarmerThanRoom == null) return "auto";
   return coilWarmerThanRoom ? "heat" : "cool";
+}
+
+// Titles and names come from the card config or from friendly names: escape them before they go into markup.
+function escapeHtml(value) {
+  const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return String(value ?? "").replace(/[&<>"']/g, (c) => map[c]);
 }
 
 function pad(n) {
@@ -502,6 +508,7 @@ class AircoHeatpumpCard extends HTMLElement {
       }
     }
     this._config = { ...DEFAULTS, ...config, indoor };
+    this._config.timeline_hours = clamp(Number(this._config.timeline_hours) || DEFAULTS.timeline_hours, 1, 168);
     this._resolved = null;
     this._built = false;
     this._history = null;
@@ -637,7 +644,7 @@ class AircoHeatpumpCard extends HTMLElement {
       .map(
         (u, i) => `
         <g transform="translate(${L.units[i].x},${L.units[i].y})">
-          ${units.length > 1 ? `<text class="label" x="0" y="-7">${u.name}</text>` : ""}
+          ${units.length > 1 ? `<text class="label" x="0" y="-7">${escapeHtml(u.name)}</text>` : ""}
           <g class="clickable" data-entity="u${i}.climate">
             <rect class="body" width="150" height="44" rx="10"/>
             <line class="louver" x1="14" y1="40" x2="136" y2="40"/>
@@ -675,7 +682,7 @@ class AircoHeatpumpCard extends HTMLElement {
         <div class="wrap" data-id="wrap">
           <div class="header">
             <div class="title-wrap">
-            <div class="title clickable" data-entity="u0.climate">${title}</div>
+            <div class="title clickable" data-entity="u0.climate">${escapeHtml(title)}</div>
             <span class="help-btn" data-help="1" data-id="help-btn" role="button" title="${this._t("help")}" ${this._config.help ? "" : "hidden"}>
               <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/><rect x="10.9" y="10.4" width="2.2" height="7.4" rx="1.1" fill="currentColor"/></svg>
             </span>
@@ -684,7 +691,7 @@ class AircoHeatpumpCard extends HTMLElement {
           </div>
           <div class="notice" data-id="alert" hidden><span class="dot"></span><span data-id="alert-text"></span></div>
           <div class="help" data-id="help" hidden>${this._helpHtml()}</div>
-          <svg viewBox="0 0 400 ${L.height}" role="img" aria-label="${title}">
+          <svg viewBox="0 0 400 ${L.height}" role="img" aria-label="${escapeHtml(title)}">
             <line class="wall" x1="${L.wallX}" y1="6" x2="${L.wallX}" y2="${L.height - 6}"/>
             ${pipes}
             <g class="clickable" data-entity="out.outdoor_temp">
@@ -758,7 +765,7 @@ class AircoHeatpumpCard extends HTMLElement {
               .map(
                 (u, i) => `
               <div class="tile clickable" data-filter="${i}" data-id="tile-filter-${i}" hidden>
-                <div class="t-label">${this._t("filter")}${units.length > 1 ? " " + u.name : ""}</div>
+                <div class="t-label">${this._t("filter")}${units.length > 1 ? " " + escapeHtml(u.name) : ""}</div>
                 <div class="t-value" data-id="filter-${i}">–</div>
                 <div class="t-sub" data-id="filter-sub-${i}"></div>
                 <div class="bar"><div data-id="filter-bar-${i}"></div></div>
@@ -768,7 +775,7 @@ class AircoHeatpumpCard extends HTMLElement {
           </div>
           <div class="timeline-wrap" data-id="timeline-wrap" ${this._config.timeline ? "" : "hidden"}>
             <div class="tl-head">
-              <span>${this._t("last_hours").replace("{h}", this._config.timeline_hours)}</span>
+              <span>${escapeHtml(this._t("last_hours").replace("{h}", this._config.timeline_hours))}</span>
               <span class="legend" data-id="legend"></span>
             </div>
             <div class="timeline" data-id="timeline"></div>
@@ -1235,7 +1242,7 @@ class AircoHeatpumpCard extends HTMLElement {
         const left = ((s.from - from) / span) * 100;
         const width = ((s.to - s.from) / span) * 100;
         const tip = `${this._t(s.status)} ${clock(s.from)}–${clock(s.to)}`;
-        return `<div style="left:${left}%;width:${width}%;--c:var(--ahc-${s.status})" title="${tip}"></div>`;
+        return `<div style="left:${left}%;width:${width}%;--c:var(--ahc-${s.status})" title="${escapeHtml(tip)}"></div>`;
       })
       .join("");
 
