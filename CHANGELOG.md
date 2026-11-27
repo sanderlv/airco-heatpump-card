@@ -7,6 +7,22 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.5.2] - 2026-11-27
+
+### Added
+
+- Tap a settings icon to change it: 3D AUTO on/off, next fan speed, next up/down or left/right vane position
+  (with the MHI-AC-Ctrl vane selects; without them swing on/off). Hold an icon to open its entity.
+- Vane select entities are found automatically (`vanes_select`, `vanes_lr_select`); they also provide the vane
+  position when there is no vane sensor.
+- MHI drawing: a blue lamp next to the green one while 3D AUTO is on.
+
+### Changed
+
+- 3D AUTO icon: filled in the text color when on (clear in every status, also in standby), outline when off.
+- Smaller tiles: four next to each other on a normal card.
+- Larger tap areas around the settings icons.
+
 ## [0.5.1] - 2026-11-27
 
 ### Changed

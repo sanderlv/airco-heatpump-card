@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.5.1";
+const CARD_VERSION = "0.5.2";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ const TEXTS = {
     help_defrost: "The outdoor unit melts frost off its coil. The indoor fan stops.",
     help_unit: "Indoor unit: the big number is the set temperature, 'room' the measured room temperature, 'coil' the temperature of the indoor coil.",
     help_streaks: "Air streaks: speed follows the indoor fan. Their tilt follows the left/right vanes, their length the up/down vanes (short = up, long = down). With swing they move along.",
-    help_icons: "Under the air streaks: the mode, then the settings: fan speed (A = auto, the bars show the speed it runs at), 3D AUTO (colored when on), up/down vanes (1 = up … 4 = down) and left/right vanes. With swing the icon moves along.",
+    help_icons: "Under the air streaks: the mode, then the settings: fan speed (A = auto, the bars show the speed it runs at), 3D AUTO (filled when on), up/down vanes (1 = up … 4 = down) and left/right vanes. With swing the icon moves along. Tap an icon to change the setting, hold it for details.",
     help_comp: "Compressor color: discharge gas temperature, from grey (below 40 °C) via orange to red (above 95 °C).",
     help_lines: "Moving dashes: refrigerant flows while the compressor runs. Thick line = gas, thin line = liquid. The flow reverses when cooling or defrosting.",
     help_snow: "Snowflake on the outdoor unit: defrost.",
@@ -62,6 +62,7 @@ const TEXTS = {
     fan_speed: "Fan speed",
     vanes_ud: "Vanes up/down",
     vanes_lr: "Vanes left/right",
+    tap_hint: "tap: change, hold: details",
     help_notice: "Amber notice: the unit limits itself for a while to protect the compressor (protection control), usually normal in cold weather. Red notice: a fault.",
     last: "last",
     filter: "Filter",
@@ -113,7 +114,7 @@ const TEXTS = {
     help_defrost: "De buitenunit ontdooit zijn wisselaar. De binnenventilator staat stil.",
     help_unit: "Binnenunit: het grote getal is de ingestelde temperatuur, 'kamer' de gemeten kamertemperatuur, 'wisselaar' de temperatuur van de binnenwisselaar.",
     help_streaks: "Luchtstrepen: de snelheid volgt de binnenventilator. De kanteling volgt de links/rechts-lamellen, de lengte de op/neer-lamellen (kort = omhoog, lang = omlaag). Bij swing bewegen ze mee.",
-    help_icons: "Onder de luchtstrepen: de modus, daarna de standen: ventilator (A = auto, de balkjes tonen de stand waarin hij draait), 3D AUTO (gekleurd als hij aan staat), lamellen op/neer (1 = omhoog … 4 = omlaag) en lamellen links/rechts. Bij swing beweegt het icoontje mee.",
+    help_icons: "Onder de luchtstrepen: de modus, daarna de standen: ventilator (A = auto, de balkjes tonen de stand waarin hij draait), 3D AUTO (gevuld als hij aan staat), lamellen op/neer (1 = omhoog … 4 = omlaag) en lamellen links/rechts. Bij swing beweegt het icoontje mee. Tik op een icoontje om de stand te wijzigen, houd het vast voor details.",
     help_comp: "Kleur van de compressor: persgastemperatuur, van grijs (onder 40 °C) via oranje naar rood (boven 95 °C).",
     help_lines: "Bewegende streepjes: koudemiddel stroomt zolang de compressor draait. Dikke leiding = gas, dunne = vloeistof. Bij koelen en defrost draait de stroom om.",
     help_snow: "Sneeuwvlok op de buitenunit: defrost.",
@@ -123,6 +124,7 @@ const TEXTS = {
     fan_speed: "Ventilatorstand",
     vanes_ud: "Lamellen op/neer",
     vanes_lr: "Lamellen links/rechts",
+    tap_hint: "tik: wijzigen, vasthouden: details",
     help_notice: "Oranje melding: de unit begrenst zichzelf even om de compressor te beschermen (protection control), meestal normaal bij kou. Rode melding: een storing.",
     last: "laatst",
     filter: "Filter",
@@ -175,6 +177,12 @@ const INDOOR_KEYS = {
   vanes: { label: "Vane position up/down", re: /_vanes$/ },
   vanes_lr: { label: "Vane position left/right", re: /_vanes_left_right$/ },
   auto_3d: { label: "3D auto switch", domain: "switch", re: /_3d_auto$/ },
+  vanes_select: { label: "Vane control up/down (select)", domain: "select", re: /_(fan_control_up_down|vertical_vanes)$/ },
+  vanes_lr_select: {
+    label: "Vane control left/right (select)",
+    domain: "select",
+    re: /_(fan_control_left_right|horizontal_vanes)$/,
+  },
   error: { label: "Error code", re: /_error_code$/ },
 };
 
@@ -292,16 +300,33 @@ function clock(ms) {
 
 // Fan mode of the climate entity as a speed number: "A" for auto, otherwise 1, 2, 3, ...
 // counted over the speeds the entity offers. "bars" scales that to the 4 bars of the icon.
+function fanSpeeds(modes) {
+  const rank = (m) => (Number.isNaN(Number(m)) ? FAN_ORDER.indexOf(m) + 1 || 50 : Number(m));
+  return (modes || []).filter((m) => !["auto", "on", "off", "focus", "diffuse"].includes(m)).sort((a, b) => rank(a) - rank(b));
+}
+
 function fanStep(mode, modes) {
   if (!mode) return null;
   if (mode === "auto") return { label: "A", bars: null };
-  const rank = (m) => (Number.isNaN(Number(m)) ? FAN_ORDER.indexOf(m) + 1 || 50 : Number(m));
-  const speeds = (modes || [])
-    .filter((m) => !["auto", "on", "off", "focus", "diffuse"].includes(m))
-    .sort((a, b) => rank(a) - rank(b));
+  const speeds = fanSpeeds(modes);
   const index = speeds.indexOf(mode);
   if (index < 0) return null;
   return { label: String(index + 1), bars: Math.round(((index + 1) / speeds.length) * 4) };
+}
+
+// Tapping the fan icon: auto, then the speeds from slow to fast, then auto again.
+function nextFanMode(mode, modes) {
+  const order = [...((modes || []).includes("auto") ? ["auto"] : []), ...fanSpeeds(modes)];
+  if (order.length < 2) return null;
+  return order[(order.indexOf(mode) + 1) % order.length];
+}
+
+// Tapping a vane icon without a vane select: switch swing on or off for that direction only.
+function nextSwingMode(current, modes, axis) {
+  const vertical = ["vertical", "both"].includes(current) !== (axis === "vertical");
+  const horizontal = ["horizontal", "both"].includes(current) !== (axis === "horizontal");
+  const target = vertical && horizontal ? "both" : vertical ? "vertical" : horizontal ? "horizontal" : "off";
+  return (modes || []).includes(target) ? target : null;
 }
 
 function dischargeColor(temp) {
@@ -507,10 +532,13 @@ const STYLE = `
   svg .ico-text { font-size: 8px; font-weight: 500; }
   .fan-bar { fill: none; stroke: var(--secondary-text-color); stroke-width: 0.8; }
   .fan-bar.on { fill: var(--primary-text-color); stroke: none; }
-  .d3 rect { fill: none; stroke: var(--secondary-text-color); stroke-width: 0.9; }
+  .d3 .pill { fill: none; stroke: var(--secondary-text-color); stroke-width: 0.9; }
   svg .d3 text { font-size: 7px; font-weight: 700; fill: var(--secondary-text-color); }
-  .d3.on rect { fill: var(--mode); stroke: none; }
-  svg .d3.on text { fill: #111; }
+  .d3.on .pill { fill: var(--primary-text-color); stroke: none; }
+  svg .d3.on text { fill: var(--ha-card-background, var(--card-background-color, #fff)); }
+  .icons [data-tap] { cursor: pointer; }
+  .icons .hit { fill: transparent; stroke: none; }
+  svg { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   .flap, .arrow { transition: transform 1.5s ease; }
   .flap.swing { animation: ahc-flap 5s ease-in-out infinite; }
   .arrow.swing { animation: ahc-swing-lr 6s ease-in-out infinite; }
@@ -532,6 +560,7 @@ const STYLE = `
   svg .wu-temp.muted { fill: #6b7280; }
   .wu-lamp { fill: #9aa1ab; }
   .wu-lamp.on { fill: #22c55e; }
+  .wu-lamp.on3d { fill: #60a5fa; }
 
   .snow { opacity: 0; transition: opacity 0.8s; }
   .defrost .snow { opacity: 1; }
@@ -547,13 +576,13 @@ const STYLE = `
   .anim-off .air.run g path:nth-child(2) { transform: translateY(13px); }
   .anim-off .air.run g path:nth-child(3) { transform: translateY(22px); }
 
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; margin-top: 6px; }
-  .tile { background: var(--secondary-background-color, #2b2b2b); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; margin-top: 4px; }
+  .tile { background: var(--secondary-background-color, #2b2b2b); border-radius: 8px; padding: 5px 8px; min-width: 0; }
   .tile[hidden] { display: none; }
-  .t-label { font-size: 0.75em; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .t-value { font-size: 1.15em; font-weight: 500; color: var(--primary-text-color); margin-top: 2px; white-space: nowrap; }
-  .t-sub { font-size: 0.72em; color: var(--secondary-text-color); margin-top: 1px; min-height: 1.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bar { height: 4px; border-radius: 2px; background: var(--divider-color, #555); margin-top: 5px; overflow: hidden; }
+  .t-label { font-size: 0.7em; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .t-value { font-size: 1em; font-weight: 500; color: var(--primary-text-color); margin-top: 1px; white-space: nowrap; }
+  .t-sub { font-size: 0.66em; color: var(--secondary-text-color); margin-top: 0; min-height: 1.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 3px; border-radius: 2px; background: var(--divider-color, #555); margin-top: 3px; overflow: hidden; }
   .bar > div { height: 100%; width: 0; background: var(--success-color, #22c55e); transition: width 0.6s; }
   .tile.warn .bar > div { background: var(--warning-color, #f59e0b); }
   .tile.due .bar > div { background: var(--error-color, #ef4444); }
@@ -674,6 +703,13 @@ class AircoHeatpumpCard extends HTMLElement {
   _str(entityId) {
     const st = entityId && this._hass.states[entityId];
     return st ? st.state : null;
+  }
+
+  // Position of the chosen option of a select entity, counted from 1 (MHI vane selects follow the sensor numbering).
+  _option(entityId) {
+    const st = entityId && this._hass.states[entityId];
+    const index = st?.attributes.options?.indexOf(st.state) ?? -1;
+    return index < 0 ? null : index + 1;
   }
 
   _unit(entityId, fallback = "") {
@@ -857,7 +893,16 @@ class AircoHeatpumpCard extends HTMLElement {
       (this._el[id] ||= []).push(el);
     });
 
-    this.shadowRoot.querySelector("ha-card").addEventListener("click", (ev) => this._onClick(ev));
+    const card = this.shadowRoot.querySelector("ha-card");
+    card.addEventListener("click", (ev) => this._onClick(ev));
+    // Settings icons: tap changes the setting, hold (half a second) opens the entity.
+    card.addEventListener("pointerdown", (ev) => this._pressStart(ev));
+    for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
+      card.addEventListener(type, () => clearTimeout(this._pressTimer));
+    }
+    card.addEventListener("contextmenu", (ev) => {
+      if (ev.composedPath().some((el) => el.dataset?.tap)) ev.preventDefault();
+    });
     this._helpOpen = false;
     this._built = true;
   }
@@ -924,6 +969,7 @@ class AircoHeatpumpCard extends HTMLElement {
             <text class="wu-text" x="12" y="30" data-id="u${i}-room"></text>
             <rect class="wu-display" x="96" y="9" width="42" height="21" rx="4"/>
             <text class="wu-temp" x="117" y="25" text-anchor="middle" data-id="u${i}-target">–</text>
+            <circle class="wu-lamp" data-id="u${i}-lamp3d" cx="127.5" cy="32.6" r="1.5"><title>3D AUTO</title></circle>
             <circle class="wu-lamp" data-id="u${i}-lamp" cx="133" cy="32.6" r="1.5"/>`;
   }
 
@@ -941,25 +987,29 @@ class AircoHeatpumpCard extends HTMLElement {
         `<line class="ico on" x1="0" y1="0" x2="0" y2="7"/><circle class="ico-dot" cy="7.5" r="1.2"/></g></g>`;
     }
     return `
-            <g class="clickable" data-id="u${i}-ico-fan" data-entity="u${i}.climate">
-              <title>${this._t("fan_speed")}</title>
+            <g data-id="u${i}-ico-fan" data-tap="fan" data-unit="${i}">
+              <title>${this._t("fan_speed")} (${this._t("tap_hint")})</title>
+              <rect class="hit" x="-2" y="-3" width="40" height="18"/>
               <g transform="translate(6,6)"><circle class="ico-ring" r="5.2"/>${blades(3, 4.6)}</g>
               ${bars}
               <text class="ico-text" x="30" y="10" data-id="u${i}-fan-label"></text>
             </g>
-            <g class="clickable d3" data-id="u${i}-ico-3d" data-entity="u${i}.auto_3d" transform="translate(40,1)">
-              <title>3D AUTO</title>
-              <rect width="17" height="10" rx="3"/>
+            <g class="d3" data-id="u${i}-ico-3d" data-tap="3d" data-unit="${i}" transform="translate(40,1)">
+              <title>3D AUTO (${this._t("tap_hint")})</title>
+              <rect class="hit" x="-2" y="-4" width="21" height="18"/>
+              <rect class="pill" width="17" height="10" rx="3"/>
               <text x="8.5" y="7.6" text-anchor="middle">3D</text>
             </g>
-            <g class="clickable" data-id="u${i}-ico-ud" data-entity="u${i}.vanes" transform="translate(66,1)">
-              <title>${this._t("vanes_ud")}</title>
+            <g data-id="u${i}-ico-ud" data-tap="ud" data-unit="${i}" transform="translate(66,1)">
+              <title>${this._t("vanes_ud")} (${this._t("tap_hint")})</title>
+              <rect class="hit" x="-3" y="-4" width="29" height="18"/>
               <path class="ico" d="M0,0 V4 H5"/>
               <g transform="translate(5,4)"><line class="ico on flap" data-id="u${i}-ud-flap" x1="0" y1="0" x2="8" y2="0"/></g>
               <text class="ico-text" x="15" y="9" data-id="u${i}-ud-label"></text>
             </g>
-            <g class="clickable" data-id="u${i}-ico-lr" data-entity="u${i}.vanes_lr" transform="translate(98,1)">
-              <title>${this._t("vanes_lr")}</title>
+            <g data-id="u${i}-ico-lr" data-tap="lr" data-unit="${i}" transform="translate(98,1)">
+              <title>${this._t("vanes_lr")} (${this._t("tap_hint")})</title>
+              <rect class="hit" x="-3" y="-4" width="22" height="18"/>
               <line class="ico" x1="0" y1="0" x2="16" y2="0"/>
               ${arrows}
             </g>`;
@@ -1016,8 +1066,8 @@ class AircoHeatpumpCard extends HTMLElement {
         fanMode: climate?.attributes.fan_mode,
         fanModes: climate?.attributes.fan_modes,
         auto3d: u.e.auto_3d ? this._str(u.e.auto_3d) : null,
-        vanes: this._num(u.e.vanes),
-        vanesLr: this._num(u.e.vanes_lr),
+        vanes: this._num(u.e.vanes) ?? this._option(u.e.vanes_select),
+        vanesLr: this._num(u.e.vanes_lr) ?? this._option(u.e.vanes_lr_select),
         swingMode: climate?.attributes.swing_mode,
         c1,
         c2,
@@ -1224,6 +1274,8 @@ class AircoHeatpumpCard extends HTMLElement {
 
     this._class(`u${i}-ico-3d`, "gone", s.auto3d == null);
     this._class(`u${i}-ico-3d`, "on", s.auto3d === "on");
+    this._class(`u${i}-lamp3d`, "gone", s.auto3d == null);
+    this._class(`u${i}-lamp3d`, "on3d", s.auto3d === "on");
 
     const flap = FLAP_ANGLE[s.vanes];
     this._class(`u${i}-ico-ud`, "gone", !flap && !swingUpDown);
@@ -1331,6 +1383,13 @@ class AircoHeatpumpCard extends HTMLElement {
 
   _onClick(ev) {
     const path = ev.composedPath();
+    const icon = path.find((el) => el.dataset?.tap);
+    if (icon) {
+      clearTimeout(this._pressTimer);
+      if (this._longPress) this._longPress = false;
+      else this._tapIcon(icon.dataset.tap, Number(icon.dataset.unit));
+      return;
+    }
     if (path.some((el) => el.dataset?.help)) {
       this._toggleHelp();
       return;
@@ -1341,9 +1400,67 @@ class AircoHeatpumpCard extends HTMLElement {
       return;
     }
     const target = path.find((el) => el.dataset?.entity);
-    const entityId = target && this._entityFor(target.dataset.entity);
+    this._moreInfo(target && this._entityFor(target.dataset.entity));
+  }
+
+  _moreInfo(entityId) {
     if (!entityId) return;
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
+  }
+
+  _pressStart(ev) {
+    const icon = ev.composedPath().find((el) => el.dataset?.tap);
+    if (!icon) return;
+    this._longPress = false;
+    clearTimeout(this._pressTimer);
+    this._pressTimer = setTimeout(() => {
+      this._longPress = true;
+      this._moreInfo(this._iconEntity(icon.dataset.tap, Number(icon.dataset.unit)));
+    }, 500);
+  }
+
+  // The entity behind a settings icon, opened on a long press.
+  _iconEntity(tap, i) {
+    const unit = this._resolved.units[i];
+    if (!unit) return null;
+    if (tap === "3d") return unit.e.auto_3d;
+    if (tap === "ud") return unit.e.vanes_select || unit.e.vanes || unit.climate;
+    if (tap === "lr") return unit.e.vanes_lr_select || unit.e.vanes_lr || unit.climate;
+    return unit.climate;
+  }
+
+  // Tap on a settings icon: 3D AUTO on/off, next fan speed, next vane position (or swing on/off for that
+  // direction when there is no vane select). When none of that is possible, the entity opens.
+  _tapIcon(tap, i) {
+    const unit = this._resolved.units[i];
+    const climate = unit && this._hass.states[unit.climate];
+    if (!climate) return;
+    const call = (domain, service, data) => this._hass.callService(domain, service, data);
+    const attrs = climate.attributes;
+    if (tap === "3d" && unit.e.auto_3d) {
+      call("switch", "toggle", { entity_id: unit.e.auto_3d });
+      return;
+    }
+    if (tap === "fan") {
+      const next = nextFanMode(attrs.fan_mode, attrs.fan_modes);
+      if (next) {
+        call("climate", "set_fan_mode", { entity_id: unit.climate, fan_mode: next });
+        return;
+      }
+    }
+    if (tap === "ud" || tap === "lr") {
+      const select = unit.e[tap === "ud" ? "vanes_select" : "vanes_lr_select"];
+      if (select) {
+        call("select", "select_next", { entity_id: select, cycle: true });
+        return;
+      }
+      const swing = nextSwingMode(attrs.swing_mode, attrs.swing_modes, tap === "ud" ? "vertical" : "horizontal");
+      if (swing) {
+        call("climate", "set_swing_mode", { entity_id: unit.climate, swing_mode: swing });
+        return;
+      }
+    }
+    this._moreInfo(this._iconEntity(tap, i));
   }
 
   // ---------- history: timeline and defrost counter ----------

@@ -126,7 +126,7 @@ so many long defrosts lower the efficiency.
   when cooling well below.
 
 With `indoor_style: mhi` the indoor unit is drawn as a white MHI wall unit: the set temperature is on its display
-in the color of the status, the green lamp is on while the unit runs, the flap at the bottom follows the up/down vanes
+in the color of the status, the green lamp is on while the unit runs, the blue lamp while 3D AUTO is on, the flap at the bottom follows the up/down vanes
 and the cross-flow fan turns in the air outlet. See [Indoor unit drawing](#indoor-unit-drawing).
 
 ### Settings under the air streaks
@@ -136,11 +136,23 @@ The first line is the status in its color, the second line shows the settings as
 | Icon | Shows |
 | --- | --- |
 | Fan with bars | Fan speed. The number is the fan mode of the climate entity: **A** = auto, **1–4** = the speeds from slow to fast (MHI: quiet, low, medium, high). The bars show the speed: in auto, the speed the fan runs at right now. |
-| **3D** | 3D AUTO: filled in the status color when it is on. Only shown when a 3D auto switch is found. |
+| **3D** | 3D AUTO: filled (light on a dark theme, dark on a light theme) when it is on, only an outline when it is off. Only shown when a 3D auto switch is found. |
 | Flap (side view) | Up/down vanes: the angle of the flap and its position, **1** = up … **4** = down. With swing the flap moves up and down. |
 | Arrows (top view) | Left/right vanes: the direction of the air. *Wide* fans the arrows out, *Spot* bundles them. With swing the arrows move from left to right. |
 
 When the unit is off, the last settings are shown dimmed. Icons for something the card cannot read are left out.
+
+**Tap an icon** to change the setting, **hold it** (half a second) to open the entity:
+
+| Icon | Tap | Hold |
+| --- | --- | --- |
+| Fan | Next fan speed: A → 1 → 2 → 3 → 4 → A | Climate dialog |
+| 3D | 3D AUTO on/off | 3D auto switch |
+| Flap | Next up/down position (1 → 2 → 3 → 4 → swing) | Vane select |
+| Arrows | Next left/right position (left → … → right → wide → spot → swing) | Vane select |
+
+The vane positions need the vane select entities of MHI-AC-Ctrl (`vertical_vanes` / `horizontal_vanes` under `select:`
+in the ESPHome config). Without them, tapping a vane icon switches swing on or off for that direction.
 
 ### Tiles
 
@@ -171,6 +183,8 @@ A notice appears under the title when the unit reports something:
 - **Thermostat button** (the round button with a thermometer on the corner of every indoor unit): opens the
   climate dialog, so you can control the unit. Its thermometer has the color of the unit's status.
   Tapping the indoor unit itself, the title or the status chip does the same.
+- **Settings icons** under the air streaks: tap to change the setting, hold to open the entity
+  (see [Settings under the air streaks](#settings-under-the-air-streaks)).
 - **ⓘ button**: shows or hides the explanation of the colors and the drawing.
 - **Any other part of the drawing, and the tiles**: opens the history of that sensor.
 - **Filter tile**: resets the filter counter after cleaning (asks for confirmation).
@@ -295,6 +309,8 @@ indoor:
 | `vanes` | Up/down vane position (MHI: 1 = Up … 4 = Down, 5 = Swing) |
 | `vanes_lr` | Left/right vane position (MHI: 1 = Left … 5 = Right, 6 = Wide, 7 = Spot, 8 = Swing) |
 | `auto_3d` | 3D AUTO switch (`switch.…_3d_auto`) |
+| `vanes_select` | Up/down vane select, to change the position by tapping (`select.…_fan_control_up_down`) |
+| `vanes_lr_select` | Left/right vane select (`select.…_fan_control_left_right`) |
 | `error` | Error code |
 
 `energy_today` is only found automatically when its entity_id ends in `_energy_today` or `_daily_energy`.
