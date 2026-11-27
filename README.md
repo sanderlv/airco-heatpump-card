@@ -8,10 +8,12 @@ With [MHI-AC-Ctrl](https://github.com/ginkage/MHI-AC-Ctrl-ESPHome) (ESPHome) the
 
 ## Features
 
-- **Outdoor unit** with a spinning fan and a compressor that shakes while it runs.
+- **Outdoor unit** with a spinning fan and a compressor that shakes while it runs. Its color follows the discharge gas temperature.
 - **Refrigerant flow** between outdoor and indoor unit. It reverses when cooling or defrosting.
 - **Defrost**: the outdoor coil frosts over, a snowflake appears and the refrigerant turns icy blue.
 - **Indoor units** with a spinning fan and air streaks that follow fan speed and both vane directions (swing included).
+  Two drawings: a plain box for every brand, or a white MHI wall unit with a display and a moving flap.
+- **Settings at a glance**: under the air streaks the mode, fan speed, 3D AUTO and both vane positions as icons.
 - **Temperatures**: outdoor air, outdoor coil, discharge gas, superheat, expansion valve, indoor coil, room and setpoint.
 - **Tiles**: power, energy today, estimated COP, compressor, defrosts today and filter counters.
 - **Timeline** of the last 24 hours.
@@ -98,6 +100,8 @@ Without vane sensors the card uses the swing mode of the climate entity.
 
 - The **fan** follows the outdoor fan speed. It stops during defrost.
 - The **compressor** shakes while it runs. The number above it is its frequency in Hz: higher = more power.
+  Its color follows the discharge gas temperature: grey below 40 °C, orange around 60 °C, red above 95 °C.
+  Without a discharge sensor it stays grey.
 - **Outdoor**: air temperature measured by the outdoor unit. Sun or a running unit can make it read a little high.
 - **Coil**: temperature of the outdoor heat exchanger. When heating it is colder than the outdoor air.
   Below 0 °C, moisture from the air freezes on it.
@@ -115,10 +119,27 @@ so many long defrosts lower the efficiency.
 
 ### Indoor unit
 
-- **Big number**: room temperature, measured in the air the unit sucks in.
-- **Target**: the setpoint. When the unit is off, its status is shown instead.
+- **Big number**: the set temperature. When the unit is off it says *off* (on the MHI display: `– –`).
+- **Room**: room temperature, measured in the air the unit sucks in.
 - **Coil**: temperature of the indoor heat exchanger. When heating it is well above room temperature,
   when cooling well below.
+
+With `indoor_style: mhi` the indoor unit is drawn as a white MHI wall unit: the set temperature is on its display
+in the color of the status, the green lamp is on while the unit runs, the flap at the bottom follows the up/down vanes
+and the cross-flow fan turns in the air outlet. See [Indoor unit drawing](#indoor-unit-drawing).
+
+### Settings under the air streaks
+
+The first line is the status in its color, the second line shows the settings as icons:
+
+| Icon | Shows |
+| --- | --- |
+| Fan with bars | Fan speed. The number is the fan mode of the climate entity: **A** = auto, **1–4** = the speeds from slow to fast (MHI: quiet, low, medium, high). The bars show the speed: in auto, the speed the fan runs at right now. |
+| **3D** | 3D AUTO: filled in the status color when it is on. Only shown when a 3D auto switch is found. |
+| Flap (side view) | Up/down vanes: the angle of the flap and its position, **1** = up … **4** = down. With swing the flap moves up and down. |
+| Arrows (top view) | Left/right vanes: the direction of the air. *Wide* fans the arrows out, *Spot* bundles them. With swing the arrows move from left to right. |
+
+When the unit is off, the last settings are shown dimmed. Icons for something the card cannot read are left out.
 
 ### Tiles
 
@@ -189,6 +210,21 @@ indoor:
 
 The outdoor values (compressor, defrost, power, ...) are read from the **first** indoor unit.
 
+### Indoor unit drawing
+
+```yaml
+type: custom:airco-heatpump-card
+entity: climate.living_room
+indoor_style: mhi
+```
+
+| `indoor_style` | Drawing |
+| --- | --- |
+| `standard` | A plain box with the fan, the set temperature, room and coil temperature. Fits every brand. |
+| `mhi` | A white MHI wall unit with a display, a run lamp, a flap that follows the up/down vanes and the cross-flow fan. |
+
+The style applies to all indoor units of the card. More brands can be added later.
+
 ### Options
 
 | Option | Default | Description |
@@ -198,6 +234,7 @@ The outdoor values (compressor, defrost, power, ...) are read from the **first**
 | `name` | friendly name | Card title. |
 | `language` | `auto` | `auto`, `en` or `nl`. |
 | `animations` | `auto` | `auto` follows the "reduce motion" setting of your device, `always` or `off`. |
+| `indoor_style` | `standard` | Drawing of the indoor units: `standard` (plain box, every brand) or `mhi` (white MHI wall unit). |
 | `cop` | `true` | Show the estimated COP tile. |
 | `coil_factor` | `0.7` | Share of the coil-to-room temperature difference that ends up in the air (COP estimate). |
 | `timeline` | `true` | Show the timeline. |
@@ -256,6 +293,7 @@ indoor:
 | `run_hours` | Indoor run hours |
 | `vanes` | Up/down vane position (MHI: 1 = Up … 4 = Down, 5 = Swing) |
 | `vanes_lr` | Left/right vane position (MHI: 1 = Left … 5 = Right, 6 = Wide, 7 = Spot, 8 = Swing) |
+| `auto_3d` | 3D AUTO switch (`switch.…_3d_auto`) |
 | `error` | Error code |
 
 `energy_today` is only found automatically when its entity_id ends in `_energy_today` or `_daily_energy`.
@@ -383,7 +421,7 @@ The version of the loaded card is printed in the browser console.
 1. Raise `CARD_VERSION` at the top of `airco-heatpump-card.js`.
 2. Add a section for that version to `CHANGELOG.md`.
 3. Commit and push.
-4. On GitHub: **Releases → Draft a new release**, create tag `v0.2.0` on `main`, title `v0.2.0`, **Publish release**.
+4. On GitHub: **Releases → Draft a new release**, create tag `v0.5.0` on `main`, title `v0.5.0`, **Publish release**.
 
 The release workflow then checks that the tag matches `CARD_VERSION`, fills the release notes
 from `CHANGELOG.md` and attaches `airco-heatpump-card.js` to the release.

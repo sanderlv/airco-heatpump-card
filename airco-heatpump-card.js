@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.4.1";
+const CARD_VERSION = "0.5.0";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -31,7 +31,7 @@ const TEXTS = {
     superheat: "Superheat",
     exp_valve: "Exp. valve",
     protection: "Protection",
-    target: "target",
+    room: "room",
     power: "Power",
     today: "Today",
     cop: "COP ≈",
@@ -50,12 +50,18 @@ const TEXTS = {
     help_fan: "Only the indoor fan runs.",
     help_standby: "On, but the compressor is idle: the room is at its setpoint.",
     help_defrost: "The outdoor unit melts frost off its coil. The indoor fan stops.",
+    help_unit: "Indoor unit: the big number is the set temperature, 'room' the measured room temperature, 'coil' the temperature of the indoor coil.",
     help_streaks: "Air streaks: speed follows the indoor fan. Their tilt follows the left/right vanes, their length the up/down vanes (short = up, long = down). With swing they move along.",
+    help_icons: "Under the air streaks: the mode, then the settings: fan speed (A = auto, the bars show the speed it runs at), 3D AUTO (colored when on), up/down vanes (1 = up … 4 = down) and left/right vanes. With swing the icon moves along.",
+    help_comp: "Compressor color: discharge gas temperature, from grey (below 40 °C) via orange to red (above 95 °C).",
     help_lines: "Moving dashes: refrigerant flows while the compressor runs. Thick line = gas, thin line = liquid. The flow reverses when cooling or defrosting.",
     help_snow: "Snowflake on the outdoor unit: defrost.",
     help_cop: "COP ≈ is an estimate, not a measurement.",
     help_tap: "Tap the thermostat button on the indoor unit for the controls, any other part for its history.",
     thermostat: "Thermostat",
+    fan_speed: "Fan speed",
+    vanes_ud: "Vanes up/down",
+    vanes_lr: "Vanes left/right",
     help_notice: "Amber notice: the unit limits itself for a while to protect the compressor (protection control), usually normal in cold weather. Red notice: a fault.",
     last: "last",
     filter: "Filter",
@@ -86,7 +92,7 @@ const TEXTS = {
     superheat: "Oververhitting",
     exp_valve: "Exp.ventiel",
     protection: "Beveiliging",
-    target: "doel",
+    room: "kamer",
     power: "Vermogen",
     today: "Vandaag",
     cop: "COP ≈",
@@ -105,12 +111,18 @@ const TEXTS = {
     help_fan: "Alleen de binnenventilator draait.",
     help_standby: "Aan, maar de compressor staat stil: de kamer is op temperatuur.",
     help_defrost: "De buitenunit ontdooit zijn wisselaar. De binnenventilator staat stil.",
+    help_unit: "Binnenunit: het grote getal is de ingestelde temperatuur, 'kamer' de gemeten kamertemperatuur, 'wisselaar' de temperatuur van de binnenwisselaar.",
     help_streaks: "Luchtstrepen: de snelheid volgt de binnenventilator. De kanteling volgt de links/rechts-lamellen, de lengte de op/neer-lamellen (kort = omhoog, lang = omlaag). Bij swing bewegen ze mee.",
+    help_icons: "Onder de luchtstrepen: de modus, daarna de standen: ventilator (A = auto, de balkjes tonen de stand waarin hij draait), 3D AUTO (gekleurd als hij aan staat), lamellen op/neer (1 = omhoog … 4 = omlaag) en lamellen links/rechts. Bij swing beweegt het icoontje mee.",
+    help_comp: "Kleur van de compressor: persgastemperatuur, van grijs (onder 40 °C) via oranje naar rood (boven 95 °C).",
     help_lines: "Bewegende streepjes: koudemiddel stroomt zolang de compressor draait. Dikke leiding = gas, dunne = vloeistof. Bij koelen en defrost draait de stroom om.",
     help_snow: "Sneeuwvlok op de buitenunit: defrost.",
     help_cop: "COP ≈ is een schatting, geen meting.",
     help_tap: "Tik op het thermostaatknopje van de binnenunit voor de bediening, op de rest voor de geschiedenis.",
     thermostat: "Thermostaat",
+    fan_speed: "Ventilatorstand",
+    vanes_ud: "Lamellen op/neer",
+    vanes_lr: "Lamellen links/rechts",
     help_notice: "Oranje melding: de unit begrenst zichzelf even om de compressor te beschermen (protection control), meestal normaal bij kou. Rode melding: een storing.",
     last: "laatst",
     filter: "Filter",
@@ -162,6 +174,7 @@ const INDOOR_KEYS = {
   run_hours: { label: "Indoor run hours", re: /_indoor_unit_total_run_time$/ },
   vanes: { label: "Vane position up/down", re: /_vanes$/ },
   vanes_lr: { label: "Vane position left/right", re: /_vanes_left_right$/ },
+  auto_3d: { label: "3D auto switch", domain: "switch", re: /_3d_auto$/ },
   error: { label: "Error code", re: /_error_code$/ },
 };
 
@@ -198,6 +211,7 @@ const DEFAULTS = {
   cop: true,
   timeline: true,
   help: true,
+  indoor_style: "standard",
   timeline_hours: 24,
   voltage: 230,
   coil_factor: 0.7,
@@ -220,6 +234,19 @@ const VANE_TILT = {
   6: [30, 0, -30],
   7: [-12, 0, 12],
 };
+// Up/down vanes, icon under the air streaks: angle of the flap in degrees per position.
+const FLAP_ANGLE = { 1: 12, 2: 32, 3: 55, 4: 78 };
+// Drawings of the indoor unit. "standard" fits every brand; more can be added next to "mhi".
+const INDOOR_STYLES = ["standard", "mhi"];
+// Fan modes from slow to fast, to number the speeds of the climate entity (auto = "A").
+const FAN_ORDER = ["quiet", "silent", "low", "medium", "middle", "mid", "high", "turbo", "powerful"];
+// Discharge gas temperature (°C) -> compressor color: grey, orange, red-orange, red.
+const DISCHARGE_COLORS = [
+  [40, [107, 114, 128]],
+  [60, [249, 115, 22]],
+  [85, [244, 81, 30]],
+  [100, [220, 38, 38]],
+];
 const HISTORY_REFRESH_MS = 5 * 60 * 1000;
 const OFF_STATES = ["off", "unavailable", "unknown"];
 
@@ -261,6 +288,37 @@ function pad(n) {
 function clock(ms) {
   const d = new Date(ms);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Fan mode of the climate entity as a speed number: "A" for auto, otherwise 1, 2, 3, ...
+// counted over the speeds the entity offers. "bars" scales that to the 4 bars of the icon.
+function fanStep(mode, modes) {
+  if (!mode) return null;
+  if (mode === "auto") return { label: "A", bars: null };
+  const rank = (m) => (Number.isNaN(Number(m)) ? FAN_ORDER.indexOf(m) + 1 || 50 : Number(m));
+  const speeds = (modes || [])
+    .filter((m) => !["auto", "on", "off", "focus", "diffuse"].includes(m))
+    .sort((a, b) => rank(a) - rank(b));
+  const index = speeds.indexOf(mode);
+  if (index < 0) return null;
+  return { label: String(index + 1), bars: Math.round(((index + 1) / speeds.length) * 4) };
+}
+
+function dischargeColor(temp) {
+  const stops = DISCHARGE_COLORS;
+  let rgb = stops[stops.length - 1][1];
+  if (temp <= stops[0][0]) rgb = stops[0][1];
+  else {
+    for (let i = 1; i < stops.length; i++) {
+      if (temp > stops[i][0]) continue;
+      const [t0, c0] = stops[i - 1];
+      const [t1, c1] = stops[i];
+      const f = (temp - t0) / (t1 - t0);
+      rgb = c0.map((v, k) => Math.round(v + (c1[k] - v) * f));
+      break;
+    }
+  }
+  return `rgb(${rgb.join(",")})`;
 }
 
 // ---------------------------------------------------------------------------
@@ -310,10 +368,10 @@ function makeLayout(count) {
     ? [{ x: 238, y: 30, gasY: 46, liqY: 58 }]
     : [
         { x: 238, y: 18, gasY: 34, liqY: 46 },
-        { x: 238, y: 150, gasY: 178, liqY: 166 },
+        { x: 238, y: 158, gasY: 186, liqY: 174 },
       ];
   return {
-    height: single ? 228 : 258,
+    height: single ? 228 : 276,
     out,
     units,
     wallX: 204,
@@ -390,13 +448,13 @@ const STYLE = `
   .hub { fill: var(--secondary-text-color); }
   .blade { fill: var(--secondary-text-color); opacity: 0.85; }
   .divider { stroke: var(--divider-color, #555); stroke-width: 1; }
-  .comp-body { fill: var(--disabled-text-color, #6b7280); stroke: var(--secondary-text-color); stroke-width: 1; }
+  .comp-body { fill: var(--comp, var(--disabled-text-color, #6b7280)); stroke: var(--secondary-text-color); stroke-width: 1; transition: fill 1.5s; }
   .louver { stroke: var(--divider-color, #555); stroke-width: 2; stroke-linecap: round; }
   .clickable { cursor: pointer; }
   .thermo-bg { fill: var(--card-background-color, #1c1c1c); stroke: var(--divider-color, #555); stroke-width: 1.2; transition: stroke 0.2s; }
   .thermo:hover .thermo-bg { stroke: var(--primary-color, #03a9f4); }
   .thermo-glass { fill: none; stroke: var(--primary-text-color); stroke-width: 1.1; stroke-linejoin: round; }
-  .thermo-fill { fill: var(--thermo, var(--ahc-standby)); }
+  .thermo-fill { fill: var(--mode, var(--ahc-standby)); }
   .thermo-tick { stroke: var(--secondary-text-color); stroke-width: 1; stroke-linecap: round; }
 
   .spin { animation: ahc-spin var(--dur, 1s) linear infinite; animation-play-state: paused; }
@@ -436,13 +494,53 @@ const STYLE = `
   @keyframes ahc-swing-lr { 0%, 100% { transform: rotate(35deg); } 50% { transform: rotate(-35deg); } }
   @keyframes ahc-swing-ud { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
 
+  /* Settings under the air streaks */
+  .gone { display: none; }
+  svg .mode-text { font-size: 9.5px; font-weight: 500; fill: var(--mode-text, var(--secondary-text-color)); }
+  .icons { transition: opacity 0.6s; }
+  .icons.dim { opacity: 0.4; }
+  .ico { fill: none; stroke: var(--secondary-text-color); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+  .ico.on { stroke: var(--primary-text-color); }
+  .ico.flap { stroke-width: 1.8; }
+  .ico-dot { fill: var(--primary-text-color); }
+  .ico-ring { fill: none; stroke: var(--secondary-text-color); stroke-width: 1; }
+  svg .ico-text { font-size: 8px; font-weight: 500; }
+  .fan-bar { fill: none; stroke: var(--secondary-text-color); stroke-width: 0.8; }
+  .fan-bar.on { fill: var(--primary-text-color); stroke: none; }
+  .d3 rect { fill: none; stroke: var(--secondary-text-color); stroke-width: 0.9; }
+  svg .d3 text { font-size: 7px; font-weight: 700; fill: var(--secondary-text-color); }
+  .d3.on rect { fill: var(--mode); stroke: none; }
+  svg .d3.on text { fill: #111; }
+  .flap, .arrow { transition: transform 1.5s ease; }
+  .flap.swing { animation: ahc-flap 5s ease-in-out infinite; }
+  .arrow.swing { animation: ahc-swing-lr 6s ease-in-out infinite; }
+  @keyframes ahc-flap { 0%, 100% { transform: rotate(12deg); } 50% { transform: rotate(78deg); } }
+
+  /* Indoor unit style "mhi": white wall unit with a display, a moving flap and the cross-flow fan */
+  .wu-body { fill: #e9ebee; stroke: #9aa1ab; stroke-width: 1; }
+  .wu-grille { stroke: #b6bcc6; stroke-width: 1; }
+  .wu-opening { fill: #1f2328; }
+  .xflow line { stroke: #4b5563; stroke-width: 1.2; }
+  .xflow { animation: ahc-xflow var(--dur, 1s) linear infinite; animation-play-state: paused; }
+  .xflow.run { animation-play-state: running; }
+  @keyframes ahc-xflow { to { transform: translateX(-4px); } }
+  .wu-flap { fill: #d5d9de; stroke: #9aa1ab; stroke-width: 0.8; transform-box: fill-box; transform-origin: top; transition: transform 1.5s ease; }
+  .wu-flap.swing { animation: ahc-swing-ud 5s ease-in-out infinite; }
+  svg .wu-text { font-size: 8.5px; fill: #5b6470; }
+  .wu-display { fill: #1b1e22; }
+  svg .wu-temp { font-size: 14px; font-weight: 500; fill: var(--mode, #6b7280); }
+  svg .wu-temp.muted { fill: #6b7280; }
+  .wu-lamp { fill: #9aa1ab; }
+  .wu-lamp.on { fill: #22c55e; }
+
   .snow { opacity: 0; transition: opacity 0.8s; }
   .defrost .snow { opacity: 1; }
   .snow line, .snow polyline { stroke: #0284c7; stroke-width: 2.6; fill: none; stroke-linecap: round; }
   .snow .flake { animation: ahc-spin 10s linear infinite; }
   .snow .halo { fill: #dff6ff; opacity: 0.85; }
 
-  .anim-off .spin, .anim-off .hum.run, .anim-off .vane.swing, .anim-off .reach.swing, .anim-off .snow .flake,
+  .anim-off .spin, .anim-off .xflow, .anim-off .hum.run, .anim-off .vane.swing, .anim-off .reach.swing,
+  .anim-off .wu-flap.swing, .anim-off .flap.swing, .anim-off .arrow.swing, .anim-off .snow .flake,
   .anim-off .flow.run, .anim-off .air.run path { animation: none !important; }
   .anim-off .air.run path { opacity: 0.85; }
   .anim-off .air.run g path:nth-child(1) { transform: translateY(4px); }
@@ -509,6 +607,7 @@ class AircoHeatpumpCard extends HTMLElement {
     }
     this._config = { ...DEFAULTS, ...config, indoor };
     this._config.timeline_hours = clamp(Number(this._config.timeline_hours) || DEFAULTS.timeline_hours, 1, 168);
+    if (!INDOOR_STYLES.includes(this._config.indoor_style)) this._config.indoor_style = DEFAULTS.indoor_style;
     this._resolved = null;
     this._built = false;
     this._history = null;
@@ -640,40 +739,7 @@ class AircoHeatpumpCard extends HTMLElement {
         )
         .join("");
 
-    const indoor = units
-      .map(
-        (u, i) => `
-        <g transform="translate(${L.units[i].x},${L.units[i].y})">
-          ${units.length > 1 ? `<text class="label" x="0" y="-7">${escapeHtml(u.name)}</text>` : ""}
-          <g class="clickable" data-entity="u${i}.climate">
-            <rect class="body" width="150" height="44" rx="10"/>
-            <line class="louver" x1="14" y1="40" x2="136" y2="40"/>
-            <g transform="translate(20,20)">
-              <circle class="grille" r="11"/>
-              <g class="spin" data-id="u${i}-fan">${blades(3, 9.5)}</g>
-            </g>
-            <text class="small muted" x="38" y="17">${this._t("coil")}</text>
-            <text x="38" y="31" data-id="u${i}-coil">–</text>
-            <text class="big" x="142" y="23" text-anchor="end" data-id="u${i}-room">–</text>
-            <text class="small muted" x="142" y="35" text-anchor="end" data-id="u${i}-target"></text>
-          </g>
-          <g class="clickable thermo" data-entity="u${i}.climate" transform="translate(150,0)">
-            <title>${this._t("thermostat")}</title>
-            <circle class="thermo-bg" r="11.5"/>
-            <path class="thermo-glass" d="M-2,1.4 V-5 A2,2 0 0 1 2,-5 V1.4 A3.6,3.6 0 1 1 -2,1.4 Z"/>
-            <rect class="thermo-fill" data-id="u${i}-thermo" x="-0.8" y="-3" width="1.6" height="6"/>
-            <circle class="thermo-fill" data-id="u${i}-thermo" cy="4.1" r="2.2"/>
-            <line class="thermo-tick" x1="3.6" y1="-4.5" x2="5.4" y2="-4.5"/>
-            <line class="thermo-tick" x1="3.6" y1="-2" x2="5.4" y2="-2"/>
-          </g>
-          <g transform="translate(72,46)">
-            <g class="air" data-id="u${i}-air">
-              ${airColumn(-36, i, 0)}${airColumn(0, i, 1)}${airColumn(36, i, 2)}
-            </g>
-          </g>
-        </g>`
-      )
-      .join("");
+    const indoor = units.map((u, i) => this._indoorSvg(u, i, L.units[i], units.length > 1)).join("");
 
     const o = L.out;
     this.shadowRoot.innerHTML = `
@@ -796,6 +862,109 @@ class AircoHeatpumpCard extends HTMLElement {
     this._built = true;
   }
 
+  // ---------- indoor unit drawing ----------
+
+  // One indoor unit: the unit itself (in the chosen style), the thermostat button, the air streaks
+  // and, under the streaks, the mode and the settings icons.
+  _indoorSvg(u, i, pos, multi) {
+    const mhi = this._config.indoor_style === "mhi";
+    const unit = mhi ? this._mhiUnitSvg(i) : this._standardUnitSvg(i);
+    return `
+        <g transform="translate(${pos.x},${pos.y})" data-id="u${i}-unit">
+          ${multi ? `<text class="label" x="0" y="-7">${escapeHtml(u.name)}</text>` : ""}
+          <g class="clickable" data-entity="u${i}.climate">${unit}</g>
+          <g class="clickable thermo" data-entity="u${i}.climate" transform="translate(150,0)">
+            <title>${this._t("thermostat")}</title>
+            <circle class="thermo-bg" r="11.5"/>
+            <path class="thermo-glass" d="M-2,1.4 V-5 A2,2 0 0 1 2,-5 V1.4 A3.6,3.6 0 1 1 -2,1.4 Z"/>
+            <rect class="thermo-fill" x="-0.8" y="-3" width="1.6" height="6"/>
+            <circle class="thermo-fill" cy="4.1" r="2.2"/>
+            <line class="thermo-tick" x1="3.6" y1="-4.5" x2="5.4" y2="-4.5"/>
+            <line class="thermo-tick" x1="3.6" y1="-2" x2="5.4" y2="-2"/>
+          </g>
+          <g transform="translate(72,${mhi ? 50 : 46})">
+            <g class="air" data-id="u${i}-air">
+              ${airColumn(-36, i, 0)}${airColumn(0, i, 1)}${airColumn(36, i, 2)}
+            </g>
+          </g>
+          <text class="mode-text" x="72" y="92" text-anchor="middle" data-id="u${i}-mode"></text>
+          <g class="icons" data-id="u${i}-icons" transform="translate(8,98) scale(1.12)">${this._iconsSvg(i)}</g>
+        </g>`;
+  }
+
+  // A plain box with the fan: fits every brand.
+  _standardUnitSvg(i) {
+    return `
+            <rect class="body" width="150" height="44" rx="10"/>
+            <line class="louver" x1="14" y1="40" x2="136" y2="40"/>
+            <g transform="translate(20,20)">
+              <circle class="grille" r="11"/>
+              <g class="spin" data-id="u${i}-fan">${blades(3, 9.5)}</g>
+            </g>
+            <text class="small muted" x="38" y="17">${this._t("coil")}</text>
+            <text x="38" y="31" data-id="u${i}-coil">–</text>
+            <text class="big" x="142" y="23" text-anchor="end" data-id="u${i}-target">–</text>
+            <text class="small muted" x="142" y="35" text-anchor="end" data-id="u${i}-room"></text>`;
+  }
+
+  // A white MHI wall unit: set temperature on the display, the flap follows the up/down vanes,
+  // the cross-flow fan turns in the air outlet.
+  _mhiUnitSvg(i) {
+    let grille = "";
+    for (let x = 14; x < 138; x += 5) grille += `<line class="wu-grille" x1="${x}" y1="2.5" x2="${x}" y2="5.5"/>`;
+    let fan = "";
+    for (let x = 16; x < 136; x += 4) fan += `<line x1="${x}" y1="37" x2="${x - 2}" y2="41"/>`;
+    return `
+            <path class="wu-body" d="M7,0 H143 Q150,0 150,7 V30 Q150,37 141,38.5 L9,38.5 Q0,37 0,30 V7 Q0,0 7,0 Z"/>
+            ${grille}
+            <rect class="wu-opening" x="12" y="35" width="126" height="7" rx="2"/>
+            <g class="xflow" data-id="u${i}-fan">${fan}</g>
+            <rect class="wu-flap" data-id="u${i}-flap" x="12" y="41" width="126" height="11" rx="2"/>
+            <text class="wu-text" x="12" y="19">${this._t("coil")} <tspan data-id="u${i}-coil">–</tspan></text>
+            <text class="wu-text" x="12" y="30" data-id="u${i}-room"></text>
+            <rect class="wu-display" x="96" y="9" width="42" height="21" rx="4"/>
+            <text class="wu-temp" x="117" y="25" text-anchor="middle" data-id="u${i}-target">–</text>
+            <circle class="wu-lamp" data-id="u${i}-lamp" cx="133" cy="32.6" r="1.5"/>`;
+  }
+
+  // Settings icons: fan speed, 3D AUTO, up/down vanes (side view), left/right vanes (top view).
+  _iconsSvg(i) {
+    let bars = "";
+    for (let k = 0; k < 4; k++) {
+      const h = 3 + k * 2;
+      bars += `<rect class="fan-bar" data-id="u${i}-bar-${k}" x="${14 + k * 3.6}" y="${11 - h}" width="2.4" height="${h}" rx="0.6"/>`;
+    }
+    let arrows = "";
+    for (let k = 0; k < 3; k++) {
+      arrows +=
+        `<g transform="translate(${3 + k * 5},2)"><g class="arrow" data-id="u${i}-lr-${k}">` +
+        `<line class="ico on" x1="0" y1="0" x2="0" y2="7"/><circle class="ico-dot" cy="7.5" r="1.2"/></g></g>`;
+    }
+    return `
+            <g class="clickable" data-id="u${i}-ico-fan" data-entity="u${i}.climate">
+              <title>${this._t("fan_speed")}</title>
+              <g transform="translate(6,6)"><circle class="ico-ring" r="5.2"/>${blades(3, 4.6)}</g>
+              ${bars}
+              <text class="ico-text" x="30" y="10" data-id="u${i}-fan-label"></text>
+            </g>
+            <g class="clickable d3" data-id="u${i}-ico-3d" data-entity="u${i}.auto_3d" transform="translate(40,1)">
+              <title>3D AUTO</title>
+              <rect width="17" height="10" rx="3"/>
+              <text x="8.5" y="7.6" text-anchor="middle">3D</text>
+            </g>
+            <g class="clickable" data-id="u${i}-ico-ud" data-entity="u${i}.vanes" transform="translate(66,1)">
+              <title>${this._t("vanes_ud")}</title>
+              <path class="ico" d="M0,0 V4 H5"/>
+              <g transform="translate(5,4)"><line class="ico on flap" data-id="u${i}-ud-flap" x1="0" y1="0" x2="8" y2="0"/></g>
+              <text class="ico-text" x="15" y="9" data-id="u${i}-ud-label"></text>
+            </g>
+            <g class="clickable" data-id="u${i}-ico-lr" data-entity="u${i}.vanes_lr" transform="translate(98,1)">
+              <title>${this._t("vanes_lr")}</title>
+              <line class="ico" x1="0" y1="0" x2="16" y2="0"/>
+              ${arrows}
+            </g>`;
+  }
+
   // ---------- small DOM helpers ----------
 
   _text(id, text) {
@@ -843,6 +1012,10 @@ class AircoHeatpumpCard extends HTMLElement {
         room,
         target: climate?.attributes.temperature ?? null,
         fan: on ? this._num(u.e.indoor_fan) ?? 0 : 0,
+        fanSensor: this._num(u.e.indoor_fan),
+        fanMode: climate?.attributes.fan_mode,
+        fanModes: climate?.attributes.fan_modes,
+        auto3d: u.e.auto_3d ? this._str(u.e.auto_3d) : null,
         vanes: this._num(u.e.vanes),
         vanesLr: this._num(u.e.vanes_lr),
         swingMode: climate?.attributes.swing_mode,
@@ -935,6 +1108,8 @@ class AircoHeatpumpCard extends HTMLElement {
     this._class("comp", "run", st.running);
     this._var("comp", "--dur", `${clamp(30 / (st.comp || 30), 0.15, 1)}s`);
     this._text("comp-hz", `${this._fmt(st.comp, 0)} Hz`);
+    const discharge = this._num(out.discharge);
+    this._var("comp", "--comp", discharge == null ? "" : dischargeColor(discharge));
 
     const line1 = [
       `${this._t("coil")} ${this._fmt(this._num(out.outdoor_coil))} °C`,
@@ -968,32 +1143,46 @@ class AircoHeatpumpCard extends HTMLElement {
       this._class(`u${i}-fan`, "run", fanRuns);
       this._var(`u${i}-fan`, "--dur", `${clamp(1.6 / (s.fan || 1), 0.3, 3)}s`);
 
+      const off = ["off", "unavailable"].includes(s.status);
+      const unitColor = off ? "var(--ahc-off)" : `var(--ahc-${s.status})`;
       const airColor = { heat: "--ahc-heat", cool: "--ahc-cool", dry: "--ahc-dry", auto: "--ahc-auto" }[s.status] || "--ahc-fan";
+      this._var(`u${i}-unit`, "--mode", unitColor);
       this._class(`u${i}-air`, "run", fanRuns && s.status !== "defrost");
-      const unitColor = ["off", "unavailable"].includes(s.status) ? "var(--ahc-off)" : `var(--ahc-${s.status})`;
-      this._var(`u${i}-thermo`, "--thermo", unitColor);
       this._var(`u${i}-air`, "--air", `var(${airColor})`);
       this._var(`u${i}-air`, "--dur", `${clamp(3.2 / (s.fan || 1), 0.8, 3.5)}s`);
 
-      // Up/down vanes: how far the streaks reach. Left/right vanes: their tilt. Swing animates either one.
-      // Without vane sensors, the swing mode of the climate entity is used.
+      // Up/down vanes: how far the streaks reach (and the flap of the MHI drawing). Left/right vanes: their tilt.
+      // Swing animates either one. Without vane sensors, the swing mode of the climate entity is used.
       const swingUpDown = s.vanes === 5 || (s.vanes == null && ["both", "vertical"].includes(s.swingMode));
       const swingLeftRight = s.vanesLr === 8 || (s.vanesLr == null && ["both", "horizontal"].includes(s.swingMode));
-      this._class(`u${i}-reach`, "swing", swingUpDown);
-      this._var(`u${i}-reach`, "transform", swingUpDown ? "" : `scaleY(${VANE_REACH[s.vanes] ?? 0.85})`);
+      for (const id of [`u${i}-reach`, `u${i}-flap`]) {
+        this._class(id, "swing", swingUpDown);
+        this._var(id, "transform", swingUpDown ? "" : `scaleY(${VANE_REACH[s.vanes] ?? 0.85})`);
+      }
       const tilt = VANE_TILT[s.vanesLr] ?? [0, 0, 0];
       [0, 1, 2].forEach((column) => {
-        this._class(`u${i}-vane-${column}`, "swing", swingLeftRight);
-        this._var(`u${i}-vane-${column}`, "transform", swingLeftRight ? "" : `rotate(${tilt[column]}deg)`);
+        for (const id of [`u${i}-vane-${column}`, `u${i}-lr-${column}`]) {
+          this._class(id, "swing", swingLeftRight);
+          this._var(id, "transform", swingLeftRight ? "" : `rotate(${tilt[column]}deg)`);
+        }
       });
 
-      this._text(`u${i}-room`, s.room == null ? "–" : `${this._fmt(s.room)}°`);
-      this._text(
-        `u${i}-target`,
-        s.on && s.target != null ? `${this._t("target")} ${this._fmt(Number(s.target))}°` : this._t(s.status)
-      );
+      // Temperatures: set temperature large, room and coil temperature small.
+      let big = "–";
+      if (s.on && s.target != null) big = `${this._fmt(Number(s.target))}°`;
+      else if (s.status === "off") big = this._config.indoor_style === "mhi" ? "– –" : this._t("off").toLowerCase();
+      this._text(`u${i}-target`, big);
+      this._class(`u${i}-target`, "muted", !s.on);
+      this._text(`u${i}-room`, `${this._t("room")} ${s.room == null ? "–" : `${this._fmt(s.room)}°`}`);
       const coil = s.status === "cool" || s.status === "dry" ? mean(s.c1, s.c2) : mean(s.c1, s.c3);
       this._text(`u${i}-coil`, coil == null ? "–" : `${this._fmt(coil)} °C`);
+      this._class(`u${i}-lamp`, "on", s.on);
+
+      // Under the air streaks: the mode in its color, then the settings icons.
+      this._text(`u${i}-mode`, `● ${this._t(s.status)}`);
+      this._var(`u${i}-mode`, "--mode-text", off ? "var(--secondary-text-color)" : unitColor);
+      this._class(`u${i}-icons`, "dim", !s.on);
+      this._updateIcons(i, s, swingUpDown, swingLeftRight);
     });
 
     // Tiles
@@ -1020,6 +1209,29 @@ class AircoHeatpumpCard extends HTMLElement {
 
     this._hide("tile-defrost", !out.defrost);
     this._updateFilters();
+  }
+
+  // Settings icons under the air streaks. An icon is left out when nothing is known about it.
+  _updateIcons(i, s, swingUpDown, swingLeftRight) {
+    // Fan speed: the number comes from the fan mode ("A" = auto). In auto, the bars show the speed
+    // it runs at (MHI-AC-Ctrl indoor fan speed: 2 = ULo ... 5 = Hi).
+    const fan = fanStep(s.fanMode, s.fanModes);
+    let bars = fan?.bars;
+    if (bars == null) bars = s.fanSensor > 0 ? clamp(Math.round(s.fanSensor) - 1, 1, 4) : 0;
+    this._class(`u${i}-ico-fan`, "gone", !fan && s.fanSensor == null);
+    this._text(`u${i}-fan-label`, fan?.label ?? "");
+    for (let k = 0; k < 4; k++) this._class(`u${i}-bar-${k}`, "on", k < bars);
+
+    this._class(`u${i}-ico-3d`, "gone", s.auto3d == null);
+    this._class(`u${i}-ico-3d`, "on", s.auto3d === "on");
+
+    const flap = FLAP_ANGLE[s.vanes];
+    this._class(`u${i}-ico-ud`, "gone", !flap && !swingUpDown);
+    this._class(`u${i}-ud-flap`, "swing", swingUpDown);
+    this._var(`u${i}-ud-flap`, "transform", swingUpDown ? "" : `rotate(${flap ?? 45}deg)`);
+    this._text(`u${i}-ud-label`, swingUpDown || !flap ? "" : String(s.vanes));
+
+    this._class(`u${i}-ico-lr`, "gone", !VANE_TILT[s.vanesLr] && !swingLeftRight);
   }
 
   // ---------- filter counters ----------
@@ -1090,7 +1302,17 @@ class AircoHeatpumpCard extends HTMLElement {
           `<span>${this._t(`help_${s}`)}</span>`
       )
       .join("");
-    const drawing = ["help_streaks", "help_lines", "help_snow", "help_notice", "help_cop", "help_tap"]
+    const drawing = [
+      "help_unit",
+      "help_streaks",
+      "help_icons",
+      "help_lines",
+      "help_comp",
+      "help_snow",
+      "help_notice",
+      "help_cop",
+      "help_tap",
+    ]
       .map((key) => `<li>${this._t(key)}</li>`)
       .join("");
     return (
@@ -1282,6 +1504,7 @@ const LABELS = {
   cop: "Show estimated COP",
   timeline: "Show timeline",
   help: "Show help button (i)",
+  indoor_style: "Indoor unit drawing",
   timeline_hours: "Timeline (hours)",
   climate: "Climate entity",
   filter: "Filter helper",
@@ -1295,6 +1518,7 @@ const LABELS = {
 const HELPERS = {
   name: "Leave empty to use the name of the climate entity.",
   animations: "Auto follows the 'reduce motion' setting of your device.",
+  indoor_style: "Standard fits every brand. MHI wall unit: white unit with a display and a flap that follows the vanes.",
   filter: "A date helper counts days, a number helper counts indoor run hours. Tap the filter tile after cleaning.",
   airflow:
     "One value in m³/h per indoor fan speed (1, 2, 3, ...), comma separated, from the datasheet (m³/min × 60). " +
@@ -1425,6 +1649,18 @@ function buildSchema(data) {
           },
         },
       ],
+    },
+    {
+      name: "indoor_style",
+      selector: {
+        select: {
+          mode: "dropdown",
+          options: [
+            { value: "standard", label: "Standard" },
+            { value: "mhi", label: "MHI wall unit" },
+          ],
+        },
+      },
     },
     {
       type: "grid",

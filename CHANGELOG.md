@@ -7,6 +7,24 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.5.0] - 2026-11-27
+
+### Added
+
+- Option `indoor_style`: `standard` (plain box, the default) or `mhi`, a white MHI wall unit with a display
+  showing the set temperature, a run lamp, a flap that follows the up/down vanes and a turning cross-flow fan.
+  Also in the visual editor.
+- Under the air streaks: the status in its color and the settings as icons: fan speed (A or 1–4, bars for the
+  speed it runs at), 3D AUTO, up/down vanes and left/right vanes. Swing animates the icons.
+- 3D AUTO switch is found automatically (`auto_3d`).
+- The compressor color follows the discharge gas temperature (grey, orange, red).
+
+### Changed
+
+- Indoor unit: the set temperature is now the big number, the room temperature is shown small below it.
+- More space between two indoor units on one card.
+- Help panel and README explain the new icons and colors.
+
 ## [0.4.1] - 2026-11-27
 
 ### Security
