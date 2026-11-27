@@ -7,6 +7,15 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.6.1] - 2026-11-27
+
+### Changed
+
+- Tiles follow the width of the card, like the drawing: four next to each other, three with smaller text
+  on a narrow card (phone).
+
+Release `v0.6` contains the same code as 0.5.3.
+
 ## [0.5.3] - 2026-11-27
 
 ### Changed

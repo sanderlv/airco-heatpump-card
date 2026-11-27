@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.5.3";
+const CARD_VERSION = "0.6.1";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -580,7 +580,9 @@ const STYLE = `
   .anim-off .air.run g path:nth-child(2) { transform: translateY(13px); }
   .anim-off .air.run g path:nth-child(3) { transform: translateY(22px); }
 
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; margin-top: 4px; }
+  /* Tiles follow the width of the card, like the drawing: 4 next to each other, 3 with smaller text on a narrow card. */
+  .wrap { container-type: inline-size; }
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 4px; }
   .tile { background: var(--secondary-background-color, #2b2b2b); border-radius: 8px; padding: 5px 8px; min-width: 0; }
   .tile[hidden] { display: none; }
   .t-label { font-size: 0.7em; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -591,6 +593,13 @@ const STYLE = `
   .tile.warn .bar > div { background: var(--warning-color, #f59e0b); }
   .tile.due .bar > div { background: var(--error-color, #ef4444); }
   .tile.due .t-value { color: var(--error-color, #ef4444); }
+  @container (max-width: 400px) {
+    .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+    .tile { padding: 4px 6px; }
+    .t-label { font-size: 0.64em; }
+    .t-value { font-size: 0.9em; }
+    .t-sub { font-size: 0.6em; }
+  }
 
   .timeline-wrap { margin-top: 10px; }
   .timeline-wrap[hidden] { display: none; }
