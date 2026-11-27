@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.5.2";
+const CARD_VERSION = "0.5.3";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -386,24 +386,28 @@ function airColumn(x, unit, column) {
 }
 
 // Positions of everything in the drawing (viewBox width is 400).
+// Width of an indoor unit in the drawing.
+const UNIT_W = 176;
+
 function makeLayout(count) {
   const single = count === 1;
-  const out = { x: 12, y: single ? 70 : 100, w: 178, h: 120 };
+  // The outdoor unit is drawn at 178 x 120 and scaled down, so the indoor units get more room.
+  const out = { x: 12, y: single ? 74 : 104, w: 178, h: 120, s: 0.84 };
   const units = single
-    ? [{ x: 238, y: 30, gasY: 46, liqY: 58 }]
+    ? [{ x: 208, y: 30, gasY: 46, liqY: 58 }]
     : [
-        { x: 238, y: 18, gasY: 34, liqY: 46 },
-        { x: 238, y: 158, gasY: 186, liqY: 174 },
+        { x: 208, y: 18, gasY: 34, liqY: 46 },
+        { x: 208, y: 158, gasY: 186, liqY: 174 },
       ];
   return {
     height: single ? 228 : 276,
     out,
     units,
-    wallX: 204,
-    gasX: 216,
-    liqX: 226,
-    gasOut: { x: out.x + out.w, y: out.y + 32 },
-    liqOut: { x: out.x + out.w, y: out.y + 48 },
+    wallX: 176,
+    gasX: 186,
+    liqX: 196,
+    gasOut: { x: out.x + out.w * out.s, y: out.y + 32 * out.s },
+    liqOut: { x: out.x + out.w * out.s, y: out.y + 48 * out.s },
   };
 }
 
@@ -799,7 +803,7 @@ class AircoHeatpumpCard extends HTMLElement {
             <g class="clickable" data-entity="out.outdoor_temp">
               <text class="label" x="${o.x}" y="${o.y - 10}" data-id="out-temp">–</text>
             </g>
-            <g transform="translate(${o.x},${o.y})">
+            <g transform="translate(${o.x},${o.y}) scale(${o.s})">
               <rect class="body" width="${o.w}" height="${o.h}" rx="8"/>
               <g class="fins clickable" data-entity="out.outdoor_coil">
                 ${fins}
@@ -830,10 +834,10 @@ class AircoHeatpumpCard extends HTMLElement {
               </g>
             </g>
             <g class="clickable" data-entity="out.outdoor_coil">
-              <text class="small muted" x="${o.x}" y="${o.y + o.h + 16}" data-id="out-line1"></text>
+              <text class="small muted" x="${o.x}" y="${o.y + o.h * o.s + 16}" data-id="out-line1"></text>
             </g>
             <g class="clickable" data-entity="out.discharge">
-              <text class="small muted" x="${o.x}" y="${o.y + o.h + 30}" data-id="out-line2"></text>
+              <text class="small muted" x="${o.x}" y="${o.y + o.h * o.s + 30}" data-id="out-line2"></text>
             </g>
             ${indoor}
           </svg>
@@ -914,11 +918,13 @@ class AircoHeatpumpCard extends HTMLElement {
   _indoorSvg(u, i, pos, multi) {
     const mhi = this._config.indoor_style === "mhi";
     const unit = mhi ? this._mhiUnitSvg(i) : this._standardUnitSvg(i);
+    const W = UNIT_W;
+    const iconScale = 1.22;
     return `
         <g transform="translate(${pos.x},${pos.y})" data-id="u${i}-unit">
           ${multi ? `<text class="label" x="0" y="-7">${escapeHtml(u.name)}</text>` : ""}
           <g class="clickable" data-entity="u${i}.climate">${unit}</g>
-          <g class="clickable thermo" data-entity="u${i}.climate" transform="translate(150,0)">
+          <g class="clickable thermo" data-entity="u${i}.climate" transform="translate(${W},0)">
             <title>${this._t("thermostat")}</title>
             <circle class="thermo-bg" r="11.5"/>
             <path class="thermo-glass" d="M-2,1.4 V-5 A2,2 0 0 1 2,-5 V1.4 A3.6,3.6 0 1 1 -2,1.4 Z"/>
@@ -927,50 +933,54 @@ class AircoHeatpumpCard extends HTMLElement {
             <line class="thermo-tick" x1="3.6" y1="-4.5" x2="5.4" y2="-4.5"/>
             <line class="thermo-tick" x1="3.6" y1="-2" x2="5.4" y2="-2"/>
           </g>
-          <g transform="translate(72,${mhi ? 50 : 46})">
+          <g transform="translate(${W / 2},${mhi ? 50 : 46})">
             <g class="air" data-id="u${i}-air">
-              ${airColumn(-36, i, 0)}${airColumn(0, i, 1)}${airColumn(36, i, 2)}
+              ${airColumn(-42, i, 0)}${airColumn(0, i, 1)}${airColumn(42, i, 2)}
             </g>
           </g>
-          <text class="mode-text" x="72" y="92" text-anchor="middle" data-id="u${i}-mode"></text>
-          <g class="icons" data-id="u${i}-icons" transform="translate(8,98) scale(1.12)">${this._iconsSvg(i)}</g>
+          <text class="mode-text" x="${W / 2}" y="92" text-anchor="middle" data-id="u${i}-mode"></text>
+          <g class="icons" data-id="u${i}-icons" transform="translate(${(W - 150 * iconScale) / 2},98) scale(${iconScale})">
+            ${this._iconsSvg(i)}
+          </g>
         </g>`;
   }
 
   // A plain box with the fan: fits every brand.
   _standardUnitSvg(i) {
+    const W = UNIT_W;
     return `
-            <rect class="body" width="150" height="44" rx="10"/>
-            <line class="louver" x1="14" y1="40" x2="136" y2="40"/>
+            <rect class="body" width="${W}" height="44" rx="10"/>
+            <line class="louver" x1="14" y1="40" x2="${W - 14}" y2="40"/>
             <g transform="translate(20,20)">
               <circle class="grille" r="11"/>
               <g class="spin" data-id="u${i}-fan">${blades(3, 9.5)}</g>
             </g>
             <text class="small muted" x="38" y="17">${this._t("coil")}</text>
             <text x="38" y="31" data-id="u${i}-coil">–</text>
-            <text class="big" x="142" y="23" text-anchor="end" data-id="u${i}-target">–</text>
-            <text class="small muted" x="142" y="35" text-anchor="end" data-id="u${i}-room"></text>`;
+            <text class="big" x="${W - 8}" y="23" text-anchor="end" data-id="u${i}-target">–</text>
+            <text class="small muted" x="${W - 8}" y="35" text-anchor="end" data-id="u${i}-room"></text>`;
   }
 
   // A white MHI wall unit: set temperature on the display, the flap follows the up/down vanes,
   // the cross-flow fan turns in the air outlet.
   _mhiUnitSvg(i) {
+    const W = UNIT_W;
     let grille = "";
-    for (let x = 14; x < 138; x += 5) grille += `<line class="wu-grille" x1="${x}" y1="2.5" x2="${x}" y2="5.5"/>`;
+    for (let x = 14; x < W - 12; x += 5) grille += `<line class="wu-grille" x1="${x}" y1="2.5" x2="${x}" y2="5.5"/>`;
     let fan = "";
-    for (let x = 16; x < 136; x += 4) fan += `<line x1="${x}" y1="37" x2="${x - 2}" y2="41"/>`;
+    for (let x = 16; x < W - 14; x += 4) fan += `<line x1="${x}" y1="37" x2="${x - 2}" y2="41"/>`;
     return `
-            <path class="wu-body" d="M7,0 H143 Q150,0 150,7 V30 Q150,37 141,38.5 L9,38.5 Q0,37 0,30 V7 Q0,0 7,0 Z"/>
+            <path class="wu-body" d="M7,0 H${W - 7} Q${W},0 ${W},7 V30 Q${W},37 ${W - 9},38.5 L9,38.5 Q0,37 0,30 V7 Q0,0 7,0 Z"/>
             ${grille}
-            <rect class="wu-opening" x="12" y="35" width="126" height="7" rx="2"/>
+            <rect class="wu-opening" x="12" y="35" width="${W - 24}" height="7" rx="2"/>
             <g class="xflow" data-id="u${i}-fan">${fan}</g>
-            <rect class="wu-flap" data-id="u${i}-flap" x="12" y="41" width="126" height="11" rx="2"/>
+            <rect class="wu-flap" data-id="u${i}-flap" x="12" y="41" width="${W - 24}" height="11" rx="2"/>
             <text class="wu-text" x="12" y="19">${this._t("coil")} <tspan data-id="u${i}-coil">–</tspan></text>
             <text class="wu-text" x="12" y="30" data-id="u${i}-room"></text>
-            <rect class="wu-display" x="96" y="9" width="42" height="21" rx="4"/>
-            <text class="wu-temp" x="117" y="25" text-anchor="middle" data-id="u${i}-target">–</text>
-            <circle class="wu-lamp" data-id="u${i}-lamp3d" cx="127.5" cy="32.6" r="1.5"><title>3D AUTO</title></circle>
-            <circle class="wu-lamp" data-id="u${i}-lamp" cx="133" cy="32.6" r="1.5"/>`;
+            <rect class="wu-display" x="${W - 54}" y="9" width="42" height="21" rx="4"/>
+            <text class="wu-temp" x="${W - 33}" y="25" text-anchor="middle" data-id="u${i}-target">–</text>
+            <circle class="wu-lamp" data-id="u${i}-lamp3d" cx="${W - 22.5}" cy="32.6" r="1.5"><title>3D AUTO</title></circle>
+            <circle class="wu-lamp" data-id="u${i}-lamp" cx="${W - 17}" cy="32.6" r="1.5"/>`;
   }
 
   // Settings icons: fan speed, 3D AUTO, up/down vanes (side view), left/right vanes (top view).
@@ -994,20 +1004,20 @@ class AircoHeatpumpCard extends HTMLElement {
               ${bars}
               <text class="ico-text" x="30" y="10" data-id="u${i}-fan-label"></text>
             </g>
-            <g class="d3" data-id="u${i}-ico-3d" data-tap="3d" data-unit="${i}" transform="translate(40,1)">
+            <g class="d3" data-id="u${i}-ico-3d" data-tap="3d" data-unit="${i}" transform="translate(56,1)">
               <title>3D AUTO (${this._t("tap_hint")})</title>
               <rect class="hit" x="-2" y="-4" width="21" height="18"/>
               <rect class="pill" width="17" height="10" rx="3"/>
               <text x="8.5" y="7.6" text-anchor="middle">3D</text>
             </g>
-            <g data-id="u${i}-ico-ud" data-tap="ud" data-unit="${i}" transform="translate(66,1)">
+            <g data-id="u${i}-ico-ud" data-tap="ud" data-unit="${i}" transform="translate(93,1)">
               <title>${this._t("vanes_ud")} (${this._t("tap_hint")})</title>
               <rect class="hit" x="-3" y="-4" width="29" height="18"/>
               <path class="ico" d="M0,0 V4 H5"/>
               <g transform="translate(5,4)"><line class="ico on flap" data-id="u${i}-ud-flap" x1="0" y1="0" x2="8" y2="0"/></g>
               <text class="ico-text" x="15" y="9" data-id="u${i}-ud-label"></text>
             </g>
-            <g data-id="u${i}-ico-lr" data-tap="lr" data-unit="${i}" transform="translate(98,1)">
+            <g data-id="u${i}-ico-lr" data-tap="lr" data-unit="${i}" transform="translate(134,1)">
               <title>${this._t("vanes_lr")} (${this._t("tap_hint")})</title>
               <rect class="hit" x="-3" y="-4" width="22" height="18"/>
               <line class="ico" x1="0" y1="0" x2="16" y2="0"/>

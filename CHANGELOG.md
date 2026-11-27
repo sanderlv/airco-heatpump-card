@@ -7,6 +7,13 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.5.3] - 2026-11-27
+
+### Changed
+
+- Smaller outdoor unit, so the indoor units are wider and closer to it.
+- The settings icons are larger and spread over the full width of the indoor unit.
+
 ## [0.5.2] - 2026-11-27
 
 ### Added
