@@ -7,6 +7,13 @@ Versions follow [Semantic Versioning](https://semver.org): MAJOR.MINOR.PATCH.
 - **MINOR**: new features, existing configurations keep working.
 - **PATCH**: bug fixes only.
 
+## [0.5.1] - 2026-11-27
+
+### Changed
+
+- Visual editor: the sensor fields now show the sensors the card found by itself (marked "✓ Found automatically")
+  instead of empty fields. They are still left out of the YAML; only sensors you choose or change are stored.
+
 ## [0.5.0] - 2026-11-27
 
 ### Added

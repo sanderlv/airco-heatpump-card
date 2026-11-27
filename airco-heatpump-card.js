@@ -7,7 +7,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.5.0";
+const CARD_VERSION = "0.5.1";
 const CARD_TAG = "airco-heatpump-card";
 
 // ---------------------------------------------------------------------------
@@ -1716,25 +1716,72 @@ class AircoHeatpumpCardEditor extends HTMLElement {
       this.appendChild(this._form);
     }
     this._form.hass = this._hass;
-    this._form.data = this._data;
+    this._form.data = this._withFound(this._data);
     this._form.schema = this._schema;
   }
 
-  // For sensor fields: show which entity the card found by itself.
+  // Sensors the card finds by itself, per section: "out" (outdoor unit, read via the first indoor unit), 0 or 1.
+  _foundFor(section) {
+    const unit = this._data[`unit${section === "out" ? 0 : section}`] || {};
+    if (!unit.climate) return {};
+    const cacheKey = `${section === "out" ? "out" : "in"}|${unit.climate}`;
+    this._found[cacheKey] ||= discoverEntities(this._hass, unit.climate, section === "out" ? OUTDOOR_KEYS : INDOOR_KEYS);
+    return this._found[cacheKey];
+  }
+
+  // Fills the sensor fields with what the card finds by itself, so the editor shows the sensors in use.
+  // Remembers which values were filled in, so they can be left out of the YAML again.
+  _withFound(data) {
+    this._shown = { out: {}, 0: {}, 1: {} };
+    const fill = (own, section) => {
+      const merged = { ...(own || {}) };
+      for (const [key, id] of Object.entries(this._foundFor(section))) {
+        if (merged[key]) continue;
+        merged[key] = id;
+        this._shown[section][key] = id;
+      }
+      return merged;
+    };
+    const shown = { ...data, entities: fill(data.entities, "out") };
+    for (const i of [0, 1]) {
+      const unit = data[`unit${i}`];
+      if (unit?.climate) shown[`unit${i}`] = { ...unit, entities: fill(unit.entities, i) };
+    }
+    return shown;
+  }
+
+  // The opposite of _withFound: only sensors that were chosen by hand stay.
+  _withoutFound(data) {
+    const strip = (entities, section) => {
+      const own = { ...(entities || {}) };
+      for (const [key, id] of Object.entries(this._shown?.[section] || {})) {
+        if (own[key] === id) delete own[key];
+      }
+      return own;
+    };
+    const own = { ...data, entities: strip(data.entities, "out") };
+    for (const i of [0, 1]) {
+      if (data[`unit${i}`]) own[`unit${i}`] = { ...data[`unit${i}`], entities: strip(data[`unit${i}`].entities, i) };
+    }
+    return own;
+  }
+
+  // For sensor fields: say whether the value was found automatically or chosen by hand.
   _helper(schema) {
     if (schema._unit === undefined) return HELPERS[schema.name];
-    const outdoor = schema._unit < 0;
-    const unit = this._data[`unit${outdoor ? 0 : schema._unit}`] || {};
-    const own = outdoor ? this._data.entities?.[schema.name] : unit.entities?.[schema.name];
-    if (own || !unit.climate) return undefined;
-    const cacheKey = `${outdoor ? "out" : "in"}|${unit.climate}`;
-    this._found[cacheKey] ||= discoverEntities(this._hass, unit.climate, outdoor ? OUTDOOR_KEYS : INDOOR_KEYS);
-    const found = this._found[cacheKey][schema.name];
-    return found ? `Found automatically: ${found}` : "Not found automatically";
+    const section = schema._unit < 0 ? "out" : schema._unit;
+    const unit = this._data[`unit${section === "out" ? 0 : section}`] || {};
+    if (!unit.climate) return undefined;
+    const own = section === "out" ? this._data.entities?.[schema.name] : unit.entities?.[schema.name];
+    const found = this._foundFor(section)[schema.name];
+    if (!own) return found ? "✓ Found automatically" : "Not found automatically: pick a sensor, or leave empty";
+    if (found && found !== own) return `Chosen by you. Clear the field to use the one found automatically (${found}).`;
+    return "Chosen by you";
   }
 
   _changed(data) {
-    const config = fromFormData(this._config.type, data);
+    this._data = this._withoutFound(data);
+    const config = fromFormData(this._config.type, this._data);
     this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
   }
 }

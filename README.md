@@ -49,8 +49,9 @@ With [MHI-AC-Ctrl](https://github.com/ginkage/MHI-AC-Ctrl-ESPHome) (ESPHome) the
 Edit a dashboard → **Add card** → search for **Airco Heat Pump Card**.
 
 1. Pick the **climate entity** of your indoor unit. That is the only required field.
-2. Open **Indoor unit sensors** and **Outdoor unit sensors**. Under every empty field the editor shows
-   which sensor it found automatically, or *Not found automatically*. Pick the missing ones yourself.
+2. Open **Indoor unit sensors** and **Outdoor unit sensors**. The editor fills in the sensors it found by itself,
+   marked *✓ Found automatically*. Empty fields say *Not found automatically*: pick those yourself.
+   Only sensors you choose or change are written to the YAML; clear a field to go back to the automatic one.
 3. Optional: a **filter helper** (see [Filter counter](#filter-counter)), a second indoor unit, language and animations.
 
 Everything can also be set in YAML, see [Configuration](#configuration).
